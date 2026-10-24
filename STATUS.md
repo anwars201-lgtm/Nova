@@ -27,6 +27,7 @@ Aplikasi `Nova` sudah ada, bisa di-build, dan bisa dipasang. Isinya baru satu la
 - [x] Build lulus: `BUILD SUCCESSFUL in 1m 16s`, 36 task
 - [x] Signature v2 terverifikasi (`apksigner verify` → Verifies)
 - [x] `aapt2 dump badging` membaca package, minSdk 26, targetSdk 36
+- [x] Terpasang dan berjalan di device: layar beranda tampil, back normal, mode gelap mengikuti sistem
 
 ### Bukti
 
@@ -36,6 +37,8 @@ bash scripts/build.sh assembleDebug
 → app/build/outputs/apk/debug/app-debug.apk
 → sha256 79f9d73f...a48d864
 ```
+
+Uji di perangkat (laporan pengguna, 2026-10-24): instalasi berhasil, semua fungsi normal.
 
 ## Tidak selesai (sengaja)
 
