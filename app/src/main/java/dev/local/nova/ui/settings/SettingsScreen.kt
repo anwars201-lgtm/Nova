@@ -34,6 +34,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import dev.local.nova.data.AppSettings
+import dev.local.nova.BuildConfig
+import dev.local.nova.ui.home.DiagnosticsCard
 import dev.local.nova.net.ApiClient
 import dev.local.nova.net.Endpoint
 import dev.local.nova.net.EndpointResult
@@ -316,6 +318,10 @@ fun SettingsScreen(onBack: () -> Unit, onOpenMemory: () -> Unit = {}) {
                         MaterialTheme.colorScheme.primary
                     },
                 )
+            }
+
+            if (BuildConfig.DEBUG) {
+                DiagnosticsCard()
             }
         }
     }
