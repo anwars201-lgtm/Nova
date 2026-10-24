@@ -1,0 +1,15 @@
+# Artefak build dan hasil yang bisa dibuat ulang
+out/
+
+# Runtime harness
+.harness/
+.codegraph/
+
+# Gradle
+.gradle/
+build/
+local.properties
+
+# Sementara
+*.log
+*.zip
