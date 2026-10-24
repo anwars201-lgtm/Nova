@@ -1,43 +1,63 @@
 # Status proyek
 
 Diperbarui: 2026-10-24
-Siklus terakhir: belum ada siklus fitur
-Tahap: persiapan selesai, belum mulai menulis aplikasi
+Siklus terakhir: **1 — kerangka aplikasi** (selesai)
+Tahap: kerangka terpasang, belum ada fitur
 
 ## Posisi sekarang
 
-Belum ada aplikasi. Yang sudah ada: toolchain yang terbukti dan target pembangunan yang sudah dibedah.
+Aplikasi `Nova` sudah ada, bisa di-build, dan bisa dipasang. Isinya baru satu layar beranda statis.
 
-Terbukti jalan di device ini:
+| Hal | Nilai |
+|---|---|
+| Nama kerja | Nova |
+| Package debug | `dev.local.nova.debug` |
+| Package release | `dev.local.nova` |
+| Versi | 0.1.0 |
+| APK | `app/build/outputs/apk/debug/app-debug.apk` |
+| SHA-256 | `79f9d73f879a8a1f5744d6473b54379110a2409352ce0eb36fa165910a48d864` |
+| Ukuran | 11.567.262 byte |
 
-- Build APK Kotlin + Compose (AGP 9.4.1, Gradle 9.8.2, compileSdk 36)
-- Sign v2, terpasang, dan tampil di HP (`out/composetest`)
-- Build APK Java tanpa Gradle (`out/buildtest`)
-- Decompile APK dengan jadx (`out/talknova` = hasil bedah TalkNova)
+## Selesai (terverifikasi)
 
-## Spesifikasi target
+- [x] Struktur Gradle: root + modul `app`, plugin AGP 9.4.1 dan Compose 2.4.21
+- [x] Tema Material3 dengan dukungan dynamic color dan mode gelap
+- [x] Layar beranda `HomeScreen` berisi daftar langkah berikutnya
+- [x] `scripts/build.sh` — satu perintah untuk build dan hash
+- [x] Build lulus: `BUILD SUCCESSFUL in 1m 16s`, 36 task
+- [x] Signature v2 terverifikasi (`apksigner verify` → Verifies)
+- [x] `aapt2 dump badging` membaca package, minSdk 26, targetSdk 36
 
-Hasil bedah `TalkNova 0.1.17` (`site.talknova.app`), lihat `DECISIONS.md` untuk batasan peniruan.
+### Bukti
 
-Fitur yang jadi acuan: chat streaming, katalog model multi-provider (vision, web search, reasoning effort), personalisasi (memori, skills, custom instructions), generasi gambar dan video, sinkronisasi, remote coding session ke desktop, update bertanda tangan.
+```
+bash scripts/build.sh assembleDebug
+→ BUILD SUCCESSFUL in 1m 16s
+→ app/build/outputs/apk/debug/app-debug.apk
+→ sha256 79f9d73f...a48d864
+```
 
-## Berikutnya
+## Tidak selesai (sengaja)
 
-1. Sepakati ruang lingkup siklus 1
-2. Kerangka proyek: struktur Gradle, tema, navigasi dasar, build script
-3. Lapisan data: SQLite threads/messages, penyimpanan kredensial terenkripsi
-4. Klien API: base URL, auth, daftar model
-5. Streaming chat
-
-## Belum diputuskan
-
-- Nama dan package aplikasi
-- Basis URL backend: pakai milik sendiri, atau mock lokal dulu
-- Apakah memori/skills dibuat server-side seperti target, atau lokal dulu
-- Apakah remote coding session masuk ruang lingkup awal
+- Tidak ada data layer, API, atau navigasi. Itu siklus 2 dan seterusnya.
+- Ikon launcher masih ikon bawaan Android.
+- Build release (R8) belum diuji.
 
 ## Catatan
 
-- Wrapper `jadx`, `d8`, `apksigner` di repo rusak (hardcode Termux); resep pengganti ada di memori lingkungan.
-- Build pertama Kotlin+Compose butuh ~12 menit karena mengunduh dependensi; incremental jauh lebih cepat.
-- Folder `out/` tidak masuk git; isinya artefak yang bisa dibuat ulang.
+- Gradle tidak butuh `org.gradle.daemon=true`; daemon dimatikan karena native services juga dimatikan. Konsekuensi: build selalu cold start, ~1–2 menit.
+- `Column` tidak punya parameter `contentPadding`; padding dipasang lewat modifier. Ini pernah menggagalkan build pertama.
+- `local.properties` berisi `sdk.dir` dan tidak masuk git.
+
+## Berikutnya (usulan siklus 2)
+
+1. Lapisan data: skema SQLite `threads` dan `messages` + `NovaDatabase` (tanpa Room, sesuai D5)
+2. Penyimpanan kredensial AES-GCM di AndroidKeyStore (D6)
+3. Uji: unit test kecil untuk CRUD thread dan pesan
+
+## Belum diputuskan
+
+- Basis URL backend: milik sendiri atau mock lokal
+- Apakah memori dan skills dibuat server-side seperti target, atau lokal
+- Apakah remote coding session masuk ruang lingkup awal
+- Nama final dan package final (sebelum rilis)
