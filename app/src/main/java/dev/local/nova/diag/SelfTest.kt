@@ -45,16 +45,20 @@ object SelfTest {
         val repository = ThreadRepository(NovaDatabase(context))
         var threadId: String? = null
 
+        // Sisa uji dari proses sebelumnya (misal app ditutup di tengah) dibersihkan lebih dulu,
+        // supaya pemeriksaan terakhir tidak memberi hasil palsu.
+        repository.threads()
+            .filter { it.title.startsWith(TEST_TITLE_PREFIX) }
+            .forEach { repository.deleteThread(it.id) }
+
         checks += check("Simpan & baca thread") {
-            val thread = repository.createThread(
-                title = ThreadTitle.derive("Halo, ini pesan pertama untuk menguji judul otomatis"),
-                model = "test-model",
-            )
+            val title = TEST_TITLE_PREFIX + ThreadTitle.derive("Halo, ini pesan pertama untuk menguji judul otomatis")
+            val thread = repository.createThread(title = title, model = "test-model")
             threadId = thread.id
             val loaded = repository.thread(thread.id)
             when {
                 loaded == null -> error("thread tidak ditemukan setelah disimpan")
-                loaded.title != thread.title -> error("judul tidak sama: ${loaded.title}")
+                loaded.title != title -> error("judul tidak sama: ${loaded.title}")
                 loaded.model != "test-model" -> error("model tidak sama: ${loaded.model}")
                 else -> "id ${thread.id.take(8)}… dibaca kembali"
             }
@@ -169,8 +173,13 @@ object SelfTest {
         }
 
         checks += check("Tidak ada sisa data uji") {
-            val leftovers = repository.threads().size
-            if (leftovers == 0) "database bersih" else error("$leftovers thread tersisa")
+            val leftovers = repository.threads().count { it.title.startsWith(TEST_TITLE_PREFIX) }
+            val memoriesLeft = MemoryRepository(NovaDatabase(context)).count()
+            when {
+                leftovers != 0 -> error("$leftovers thread uji tersisa")
+                memoriesLeft != 0 -> error("$memoriesLeft memori tersisa")
+                else -> "percakapan pengguna tidak disentuh"
+            }
         }
 
         return checks
@@ -183,4 +192,5 @@ object SelfTest {
     }
 
     private const val KEY_TEST = "selftest_token"
+    private const val TEST_TITLE_PREFIX = "[self-test] "
 }
