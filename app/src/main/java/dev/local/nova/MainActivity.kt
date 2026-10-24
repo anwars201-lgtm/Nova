@@ -10,6 +10,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import dev.local.nova.ui.chat.ChatScreen
 import dev.local.nova.ui.home.HomeScreen
+import dev.local.nova.ui.memory.MemoryScreen
 import dev.local.nova.ui.settings.SettingsScreen
 import dev.local.nova.ui.theme.NovaTheme
 
@@ -23,7 +24,12 @@ class MainActivity : ComponentActivity() {
                 var threadId by rememberSaveable { mutableStateOf<String?>(null) }
 
                 when (route) {
-                    ROUTE_SETTINGS -> SettingsScreen(onBack = { route = ROUTE_HOME })
+                    ROUTE_SETTINGS -> SettingsScreen(
+                        onBack = { route = ROUTE_HOME },
+                        onOpenMemory = { route = ROUTE_MEMORY },
+                    )
+
+                    ROUTE_MEMORY -> MemoryScreen(onBack = { route = ROUTE_SETTINGS })
 
                     ROUTE_CHAT -> ChatScreen(
                         threadId = threadId.orEmpty(),
@@ -49,6 +55,7 @@ class MainActivity : ComponentActivity() {
     private companion object {
         const val ROUTE_HOME = "home"
         const val ROUTE_SETTINGS = "settings"
+        const val ROUTE_MEMORY = "memory"
         const val ROUTE_CHAT = "chat"
     }
 }

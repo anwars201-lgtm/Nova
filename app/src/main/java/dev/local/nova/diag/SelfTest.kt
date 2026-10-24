@@ -1,7 +1,9 @@
 package dev.local.nova.diag
 
 import android.content.Context
+import dev.local.nova.data.MemoryRepository
 import dev.local.nova.data.NovaDatabase
+import dev.local.nova.data.PromptBuilder
 import dev.local.nova.data.ThreadRepository
 import dev.local.nova.data.ThreadTitle
 import dev.local.nova.data.model.MessageRole
@@ -103,6 +105,67 @@ object SelfTest {
             if (store.get(KEY_TEST) == null) "nilai hilang setelah remove" else {
                 error("nilai masih ada setelah remove")
             }
+        }
+
+        checks += check("Tabel memori ada") {
+            val db = NovaDatabase(context)
+            val names = db.readableDatabase.rawQuery(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+                arrayOf(NovaDatabase.TABLE_MEMORIES),
+            ).use { cursor -> buildList { while (cursor.moveToNext()) add(cursor.getString(0)) } }
+            if (names.contains(NovaDatabase.TABLE_MEMORIES)) {
+                "skema v${NovaDatabase.VERSION} siap"
+            } else {
+                error("tabel ${NovaDatabase.TABLE_MEMORIES} tidak ditemukan")
+            }
+        }
+
+        val memories = MemoryRepository(NovaDatabase(context))
+        var memoryId: Long? = null
+
+        checks += check("Simpan & baca memori") {
+            val id = memories.add("Pengguna suka jawaban ringkas")
+            memoryId = id
+            val loaded = memories.all().firstOrNull { it.id == id }
+            when {
+                loaded == null -> error("memori tidak ditemukan")
+                loaded.content != "Pengguna suka jawaban ringkas" -> error("isi berbeda: ${loaded.content}")
+                !loaded.active -> error("memori baru seharusnya aktif")
+                else -> "id $id dibaca kembali"
+            }
+        }
+
+        checks += check("Nonaktifkan memori") {
+            val id = memoryId ?: error("memori belum dibuat")
+            memories.setActive(id, false)
+            val active = memories.active().any { it.id == id }
+            if (!active) "tidak lagi masuk daftar aktif" else error("memori masih aktif")
+        }
+
+        checks += check("PromptBuilder urutkan manual lalu memori") {
+            val prompt = PromptBuilder.build(
+                manualPrompt = "Jawab selalu dalam bahasa Indonesia.",
+                memories = listOf(
+                    dev.local.nova.data.model.Memory(1, "Suka jawaban ringkas", 0, true),
+                    dev.local.nova.data.model.Memory(2, "Tidak aktif", 0, false),
+                ),
+            )
+            val system = prompt.system ?: error("system prompt kosong")
+            val manualAt = system.indexOf("Jawab selalu")
+            val memoryAt = system.indexOf("Suka jawaban ringkas")
+            when {
+                manualAt < 0 -> error("prompt manual hilang")
+                memoryAt < 0 -> error("memori aktif tidak masuk")
+                manualAt > memoryAt -> error("urutan terbalik")
+                system.contains("Tidak aktif") -> error("memori nonaktif ikut terkirim")
+                else -> "${prompt.included} entri, ${prompt.characters} karakter"
+            }
+        }
+
+        checks += check("Hapus memori uji") {
+            val id = memoryId ?: error("memori belum dibuat")
+            memories.delete(id)
+            if (memories.count() == 0) "tabel memori bersih" else error("sisa ${memories.count()} memori")
         }
 
         checks += check("Tidak ada sisa data uji") {

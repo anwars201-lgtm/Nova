@@ -33,11 +33,24 @@ class AppSettings(context: Context) {
             prefs.edit().putString(KEY_MODEL, value).apply()
         }
 
+    var systemPrompt: String?
+        get() = prefs.getString(KEY_SYSTEM_PROMPT, null)
+        set(value) {
+            prefs.edit().putString(KEY_SYSTEM_PROMPT, value?.takeIf { it.isNotBlank() }).apply()
+        }
+
+    /** Saklar global: kalau mati, tidak ada memori yang disisipkan ke system prompt. */
+    var memoryEnabled: Boolean
+        get() = prefs.getBoolean(KEY_MEMORY_ENABLED, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_MEMORY_ENABLED, value).apply()
+        }
+
     val isConfigured: Boolean
         get() = !baseUrl.isNullOrBlank() && !apiKey.isNullOrBlank()
 
     fun clear() {
-        prefs.edit().remove(KEY_BASE_URL).remove(KEY_MODEL).apply()
+        prefs.edit().remove(KEY_BASE_URL).remove(KEY_MODEL).remove(KEY_SYSTEM_PROMPT).apply()
         secure.remove(KEY_API_KEY)
     }
 
@@ -46,5 +59,7 @@ class AppSettings(context: Context) {
         private const val KEY_BASE_URL = "base_url"
         private const val KEY_MODEL = "default_model"
         private const val KEY_API_KEY = "api_key"
+        private const val KEY_SYSTEM_PROMPT = "system_prompt"
+        private const val KEY_MEMORY_ENABLED = "memory_enabled"
     }
 }

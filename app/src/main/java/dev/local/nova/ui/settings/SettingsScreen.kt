@@ -43,7 +43,7 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(onBack: () -> Unit) {
+fun SettingsScreen(onBack: () -> Unit, onOpenMemory: () -> Unit = {}) {
     val context = LocalContext.current
     val settings = remember { AppSettings(context) }
     val apiClient = remember { ApiClient() }
@@ -52,6 +52,7 @@ fun SettingsScreen(onBack: () -> Unit) {
     var baseUrl by remember { mutableStateOf(settings.baseUrl.orEmpty()) }
     var apiKey by remember { mutableStateOf(settings.apiKey.orEmpty()) }
     var model by remember { mutableStateOf(settings.defaultModel.orEmpty()) }
+    var systemPrompt by remember { mutableStateOf(settings.systemPrompt.orEmpty()) }
     var keyVisible by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf<String?>(null) }
@@ -241,12 +242,33 @@ fun SettingsScreen(onBack: () -> Unit) {
                 )
             }
 
+            OutlinedTextField(
+                value = systemPrompt,
+                onValueChange = { systemPrompt = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("System prompt") },
+                placeholder = { Text("Kamu adalah asisten yang menjawab ringkas.") },
+                minLines = 3,
+                maxLines = 6,
+                supportingText = {
+                    Text("Dikirim sebelum blok memori pada setiap permintaan.")
+                },
+            )
+
+            OutlinedButton(
+                onClick = onOpenMemory,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Kelola memori")
+            }
+
             Button(
                 onClick = {
                     val url = validated() ?: return@Button
                     settings.baseUrl = url
                     settings.apiKey = apiKey
                     settings.defaultModel = model.trim().ifBlank { null }
+                    settings.systemPrompt = systemPrompt
                     report("Tersimpan. ${Endpoint.maskKey(apiKey)}", isError = false)
                 },
                 modifier = Modifier.fillMaxWidth(),

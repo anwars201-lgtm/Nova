@@ -39,6 +39,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import dev.local.nova.data.AppSettings
 import dev.local.nova.data.NovaDatabase
+import dev.local.nova.data.MemoryRepository
+import dev.local.nova.data.PromptBuilder
 import dev.local.nova.data.ThreadRepository
 import dev.local.nova.data.ThreadTitle
 import dev.local.nova.data.model.Message
@@ -74,6 +76,7 @@ fun ChatScreen(
 ) {
     val context = LocalContext.current
     val repository = remember { ThreadRepository(NovaDatabase(context)) }
+    val memories = remember { MemoryRepository(NovaDatabase(context)) }
     val settings = remember { AppSettings(context) }
     val chatClient = remember { ChatClient() }
     val scope = rememberCoroutineScope()
@@ -133,9 +136,33 @@ fun ChatScreen(
 
             val history = withContext(Dispatchers.IO) { repository.messages(threadId) }
 
+            // System prompt dirakit ulang setiap kali kirim: system manual dulu, lalu blok
+            // memori aktif. Kalau saklar mati, memori tidak dibaca sama sekali.
+            val activeMemories = if (settings.memoryEnabled) {
+                withContext(Dispatchers.IO) { memories.active() }
+            } else {
+                emptyList()
+            }
+            val prompt = PromptBuilder.build(settings.systemPrompt, activeMemories)
+            val outgoing = if (prompt.system != null) {
+                listOf(
+                    Message(
+                        id = 0,
+                        threadId = threadId,
+                        role = MessageRole.SYSTEM,
+                        content = prompt.system,
+                        reasoning = "",
+                        status = MessageStatus.COMPLETE,
+                        createdAt = System.currentTimeMillis(),
+                    ),
+                ) + history
+            } else {
+                history
+            }
+
             synchronized(buffer) { buffer.setLength(0) }
 
-            val result = chatClient.stream(url, key, selectedModel, history) { chunk ->
+            val result = chatClient.stream(url, key, selectedModel, outgoing) { chunk ->
                 val snapshot = synchronized(buffer) {
                     buffer.append(chunk)
                     buffer.toString()

@@ -141,3 +141,19 @@ Hanya keputusan yang bertahan lama. Satu keputusan = satu blok, berisi apa dan k
 - Kalau app mati di tengah stream, balasan yang sedang berjalan hilang. Ini diterima; alternatifnya jauh lebih mahal.
 - Tombol Stop menyimpan teks sebagian dengan status `FAILED`, sehingga usaha pengguna tidak lenyap.
 - Provider yang mengabaikan `stream: true` tetap dilayani: balasan JSON biasa dibaca lewat jalur non-streaming.
+
+---
+
+## D12 — Memori lokal di SQLite, diinjeksi utuh setiap permintaan
+
+**Keputusan:** Memori disimpan sebagai tabel `memories` di SQLite (sumber kebenaran), dan **semua** memori aktif dikirim pada setiap permintaan. Urutan system prompt: manual pengguna, lalu blok memori. Saklar global mematikan seluruh injeksi.
+
+**Alasan:** Sederhana dan bisa diperiksa. Tidak ada pencarian relevansi, tidak ada embedding, tidak ada panggilan model tambahan untuk memilih memori — jadi apa yang dikirim bisa dibaca langsung dari isi tabel. Untuk jumlah memori yang wajar, ini cukup.
+
+**Batas:** maksimum 50 entri dan 4.000 karakter untuk seluruh system prompt; maksimum 500 karakter per entri. Entri yang tidak kebagian tempat dilewati utuh dan jumlahnya dilaporkan agar UI bisa memperingatkan.
+
+**Konsekuensi:**
+- Biaya token naik sebanding isi memori, dibayar pengguna pada setiap permintaan. Karena itu batasnya keras, bukan saran.
+- Memori besar tidak "dipilih" secara cerdas; pengguna yang harus menonaktifkan yang tidak relevan.
+- Kalau nanti dibutuhkan pencarian relevansi, itu keputusan baru (D14 dan seterusnya), bukan perubahan diam-diam pada D12.
+- Memori tidak pernah dikirim bila saklar global mati — termasuk ke provider yang sama sekali tidak diminta.

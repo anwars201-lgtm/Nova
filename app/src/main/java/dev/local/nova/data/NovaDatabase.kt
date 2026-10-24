@@ -30,20 +30,25 @@ class NovaDatabase(context: Context) : SQLiteOpenHelper(
         db.execSQL(SQL_CREATE_MESSAGES)
         db.execSQL(SQL_CREATE_APP_META)
         db.execSQL(SQL_INDEX_MESSAGES_THREAD)
+        db.execSQL(SQL_CREATE_MEMORIES)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        // Belum ada migrasi. Selama versi masih 1, perubahan skema dilakukan dengan
-        // menaikkan VERSION dan menulis langkah migrasi di sini.
+        // Migrasi bertahap sesuai D9: setiap versi punya langkah eksplisit dan tidak
+        // pernah menghapus data pengguna.
+        if (oldVersion < 2) {
+            db.execSQL(SQL_CREATE_MEMORIES)
+        }
     }
 
     companion object {
         const val NAME = "nova.db"
-        const val VERSION = 1
+        const val VERSION = 2
 
         const val TABLE_THREADS = "threads"
         const val TABLE_MESSAGES = "messages"
         const val TABLE_APP_META = "app_meta"
+        const val TABLE_MEMORIES = "memories"
 
         val SQL_CREATE_THREADS = """
             CREATE TABLE $TABLE_THREADS (
@@ -77,5 +82,14 @@ class NovaDatabase(context: Context) : SQLiteOpenHelper(
 
         val SQL_INDEX_MESSAGES_THREAD =
             "CREATE INDEX idx_messages_thread ON $TABLE_MESSAGES(thread_id, created_at)"
+
+        val SQL_CREATE_MEMORIES = """
+            CREATE TABLE $TABLE_MEMORIES (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                content TEXT NOT NULL,
+                created_at INTEGER NOT NULL,
+                active INTEGER NOT NULL DEFAULT 1
+            )
+        """.trimIndent()
     }
 }
