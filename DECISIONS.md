@@ -88,3 +88,30 @@ Hanya keputusan yang bertahan lama. Satu keputusan = satu blok, berisi apa dan k
 - LM Studio, Ollama, dan llama.cpp di jaringan lokal tidak bisa dipakai langsung; perlu proksi https atau tunnel.
 - Tidak perlu `networkSecurityConfig` khusus, karena perilaku default Android (blokir cleartext) sudah sesuai.
 - Kalau nanti dibutuhkan, keputusan ini bisa dibatalkan dengan D9 yang menyebut pengecualiannya secara eksplisit.
+
+---
+
+## D9 — Kebijakan versi, signature, dan migrasi
+
+**Keputusan:** Tiga hal dikunci sejak rilis pertama: identitas aplikasi, kunci signature, dan cara migrasi data. Fitur dan tampilan tetap bebas berubah.
+
+**1. Versi**
+- `versionName` memakai bentuk `MAJOR.MINOR.PATCH`. Selama tahap awal tetap `0.x`; MINOR naik saat ada fitur baru, PATCH untuk perbaikan.
+- `versionCode` bilangan bulat yang selalu naik dan tidak pernah dipakai ulang, termasuk untuk build yang hanya dibagikan ke satu orang.
+- Build debug memakai akhiran package `.debug` sehingga bisa terpasang berdampingan dengan build rilis.
+
+**2. Signature**
+- Satu keystore rilis untuk selamanya. Disimpan di luar repository, dengan cadangan di dua tempat berbeda dan password di pengelola kata sandi.
+- Kehilangan kunci berarti pengguna harus uninstall — dan datanya hilang — karena Android menolak update dengan kunci berbeda. Tidak ada jalan pintas untuk ini.
+- Kredensial keystore tidak pernah masuk git; dibaca dari file properti di luar repo.
+
+**3. Migrasi data**
+- Setiap perubahan skema menaikkan `NovaDatabase.VERSION` dan menulis langkah migrasi eksplisit di `onUpgrade`.
+- Tidak ada `DROP TABLE` pada data pengguna. Kalau kolom dihapus, nilainya diabaikan dulu, tidak dibuang.
+- Setiap migrasi wajib punya jalur uji: buat data di versi lama, pasang versi baru, pastikan data masih terbaca.
+
+**Alasan:** Ketiga hal ini satu arah. Setelah ada pengguna terpasang, memperbaikinya menuntut pengguna mengorbankan data. Sebaliknya, tampilan dan fitur bisa diubah berkali-kali tanpa biaya semacam itu.
+
+**Konsekuensi:**
+- Rilis pertama belum boleh disebut siap sebelum ada: build release dengan R8, signing config rilis, dan jalur migrasi yang diuji. Ini menjadi satu siklus tersendiri ("release hardening").
+- Selama fase `0.x`, perubahan yang merusak kompatibilitas masih boleh, tetapi harus disertai migrasi.

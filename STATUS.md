@@ -64,6 +64,18 @@ bash scripts/build.sh assembleDebug testDebugUnitTest
 3. Tampilkan riwayat dari database setelah app ditutup
 4. Uji: percakapan bertahan setelah restart
 
+## Antrean siklus
+
+| Siklus | Isi | Syarat |
+|---|---|---|
+| 4 | Layar chat + kirim pesan non-streaming | koneksi sudah diuji |
+| 5 | Streaming token + tombol batalkan | siklus 4 |
+| 6 | Personalisasi: system prompt, memori, reasoning effort | siklus 5 |
+| 7 | **Release hardening** (D9): R8, keystore rilis, jalur migrasi teruji | sebelum rilis pertama |
+| 8+ | Perubahan tampilan, fitur tambahan, penyempurnaan | kapan saja setelah rilis |
+
+Perubahan tampilan dan fitur baru tetap boleh setelah rilis; yang dikunci hanya identitas, signature, dan migrasi (D9).
+
 ## Belum diputuskan
 
 - Model default: dipilih manual atau diambil dari hasil uji koneksi
