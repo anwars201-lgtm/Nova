@@ -75,3 +75,16 @@ Hanya keputusan yang bertahan lama. Satu keputusan = satu blok, berisi apa dan k
 - Kualitas dan biaya sepenuhnya tanggungan pengguna; aplikasi tidak bisa menegakkan kuota.
 - Model list diambil dari `GET {base}/models`; tidak semua provider mengimplementasikannya dengan bentuk sama, jadi perlu fallback manual.
 - Pengaturan endpoint disimpan bersama API key dan bisa diubah kapan saja.
+
+---
+
+## D8 — Hanya https, cleartext ditolak
+
+**Keputusan:** Validasi endpoint menolak skema selain `https`. Peringatan ditampilkan di layar Pengaturan.
+
+**Alasan:** API key dikirim pada setiap permintaan. Membuka cleartext berarti mengizinkan kredensial lewat jaringan tanpa enkripsi — risiko yang tidak sepadan demi kenyamanan memakai server lokal.
+
+**Konsekuensi:**
+- LM Studio, Ollama, dan llama.cpp di jaringan lokal tidak bisa dipakai langsung; perlu proksi https atau tunnel.
+- Tidak perlu `networkSecurityConfig` khusus, karena perilaku default Android (blokir cleartext) sudah sesuai.
+- Kalau nanti dibutuhkan, keputusan ini bisa dibatalkan dengan D9 yang menyebut pengecualiannya secara eksplisit.
