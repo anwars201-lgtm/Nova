@@ -2,6 +2,7 @@ package dev.local.nova.ui.chat
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,6 +16,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -41,20 +43,27 @@ import dev.local.nova.data.ThreadRepository
 import dev.local.nova.data.ThreadTitle
 import dev.local.nova.data.model.Message
 import dev.local.nova.data.model.MessageRole
+import dev.local.nova.data.model.MessageStatus
 import dev.local.nova.data.model.Thread
 import dev.local.nova.net.ChatClient
 import dev.local.nova.net.ChatResult
 import dev.local.nova.net.MessageText
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * Layar percakapan.
+ * Layar percakapan dengan streaming.
  *
- * Alur kirim pesan: simpan pesan pengguna → ambil seluruh riwayat dari database → kirim ke
- * server → simpan balasan. Riwayat selalu dibaca dari database, bukan dari state di memori,
- * supaya yang terlihat sama dengan yang tersimpan.
+ * Alur kirim: simpan pesan pengguna → baca seluruh riwayat dari database → minta stream →
+ * tampilkan potongan yang masuk di layar → simpan hasil akhir sebagai satu pesan.
+ *
+ * Potongan tidak ditulis ke database setiap kali masuk. Menulis puluhan kali per balasan
+ * tidak sepadan; isi sementara disimpan di memori, dan yang bertahan adalah hasil akhir.
+ * Kalau pengguna menekan Stop, sebagian teks tetap disimpan dengan status FAILED supaya
+ * usahanya tidak hilang.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -69,11 +78,14 @@ fun ChatScreen(
     val chatClient = remember { ChatClient() }
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
+    val buffer = remember { StringBuilder() }
 
     var reload by remember { mutableIntStateOf(0) }
     var input by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var streamingText by remember { mutableStateOf("") }
+    var streamJob by remember { mutableStateOf<Job?>(null) }
 
     val thread by produceState<Thread?>(initialValue = null, threadId, reload) {
         value = withContext(Dispatchers.IO) { repository.thread(threadId) }
@@ -87,10 +99,9 @@ fun ChatScreen(
     val model = settings.defaultModel
     val configured = !baseUrl.isNullOrBlank() && !apiKey.isNullOrBlank() && !model.isNullOrBlank()
 
-    LaunchedEffect(messages.size, busy) {
-        if (messages.isNotEmpty()) {
-            listState.animateScrollToItem(messages.lastIndex)
-        }
+    LaunchedEffect(messages.size, streamingText.isNotEmpty()) {
+        val count = messages.size + if (streamingText.isNotEmpty()) 1 else 0
+        if (count > 0) listState.animateScrollToItem(count - 1)
     }
 
     fun send() {
@@ -108,8 +119,9 @@ fun ChatScreen(
         input = ""
         error = null
         busy = true
+        streamingText = ""
 
-        scope.launch {
+        streamJob = scope.launch {
             withContext(Dispatchers.IO) {
                 repository.addMessage(threadId, MessageRole.USER, text)
                 val current = repository.thread(threadId)
@@ -120,16 +132,48 @@ fun ChatScreen(
             reload++
 
             val history = withContext(Dispatchers.IO) { repository.messages(threadId) }
-            when (val result = chatClient.complete(url, key, selectedModel, history)) {
-                is ChatResult.Success -> {
-                    withContext(Dispatchers.IO) {
-                        repository.addMessage(threadId, MessageRole.ASSISTANT, result.content)
-                    }
+
+            synchronized(buffer) { buffer.setLength(0) }
+
+            val result = chatClient.stream(url, key, selectedModel, history) { chunk ->
+                val snapshot = synchronized(buffer) {
+                    buffer.append(chunk)
+                    buffer.toString()
+                }
+                withContext(Dispatchers.Main.immediate) { streamingText = snapshot }
+            }
+
+            when (result) {
+                is ChatResult.Success -> withContext(Dispatchers.IO) {
+                    repository.addMessage(threadId, MessageRole.ASSISTANT, result.content)
                 }
 
                 is ChatResult.Failure -> error = result.message
             }
+
+            streamingText = ""
             busy = false
+            reload++
+        }
+    }
+
+    fun stop() {
+        val job = streamJob ?: return
+        scope.launch {
+            job.cancelAndJoin()
+            val partial = synchronized(buffer) { buffer.toString() }
+            streamingText = ""
+            busy = false
+            if (partial.isNotBlank()) {
+                withContext(Dispatchers.IO) {
+                    repository.addMessage(
+                        threadId = threadId,
+                        role = MessageRole.ASSISTANT,
+                        content = partial,
+                        status = MessageStatus.FAILED,
+                    )
+                }
+            }
             reload++
         }
     }
@@ -171,15 +215,21 @@ fun ChatScreen(
                     .weight(1f)
                     .fillMaxWidth(),
                 state = listState,
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+                contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 items(messages, key = { it.id }) { message ->
-                    MessageBubble(message)
+                    MessageBubble(message.content, isUser = message.role == MessageRole.USER)
+                }
+
+                if (streamingText.isNotEmpty()) {
+                    item(key = "streaming") {
+                        MessageBubble(streamingText, isUser = false)
+                    }
                 }
             }
 
-            if (busy) {
+            if (busy && streamingText.isEmpty()) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -215,8 +265,11 @@ fun ChatScreen(
                     placeholder = { Text("Tulis pesan") },
                     maxLines = 5,
                 )
-                Button(onClick = { send() }, enabled = !busy && configured) {
-                    Text("Kirim")
+
+                if (busy) {
+                    OutlinedButton(onClick = { stop() }) { Text("Stop") }
+                } else {
+                    Button(onClick = { send() }, enabled = configured) { Text("Kirim") }
                 }
             }
         }
@@ -238,7 +291,7 @@ private fun SetupNotice(onOpenSettings: () -> Unit) {
                 style = MaterialTheme.typography.titleSmall,
             )
             Text(
-                text = "Isi base URL, API key, dan nama model di Pengaturan.",
+                text = "Isi base URL, API key, dan pilih model di Pengaturan.",
                 style = MaterialTheme.typography.bodySmall,
             )
             TextButton(onClick = onOpenSettings) { Text("Buka Pengaturan") }
@@ -247,8 +300,7 @@ private fun SetupNotice(onOpenSettings: () -> Unit) {
 }
 
 @Composable
-private fun MessageBubble(message: Message) {
-    val isUser = message.role == MessageRole.USER
+private fun MessageBubble(text: String, isUser: Boolean) {
     val container = if (isUser) {
         MaterialTheme.colorScheme.primaryContainer
     } else {
@@ -259,12 +311,9 @@ private fun MessageBubble(message: Message) {
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
     ) {
-        Surface(
-            color = container,
-            shape = RoundedCornerShape(14.dp),
-        ) {
+        Surface(color = container, shape = RoundedCornerShape(14.dp)) {
             Text(
-                text = message.content,
+                text = text,
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(12.dp),
             )

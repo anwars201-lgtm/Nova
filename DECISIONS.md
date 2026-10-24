@@ -115,3 +115,29 @@ Hanya keputusan yang bertahan lama. Satu keputusan = satu blok, berisi apa dan k
 **Konsekuensi:**
 - Rilis pertama belum boleh disebut siap sebelum ada: build release dengan R8, signing config rilis, dan jalur migrasi yang diuji. Ini menjadi satu siklus tersendiri ("release hardening").
 - Selama fase `0.x`, perubahan yang merusak kompatibilitas masih boleh, tetapi harus disertai migrasi.
+
+---
+
+## D10 — Model dipilih dari daftar provider, manual sebagai cadangan
+
+**Keputusan:** Nama model diambil dari endpoint daftar model provider dan dipilih lewat dialog. Kolom teks tetap bisa diisi manual.
+
+**Alasan:** Nama model berubah cepat dan berbeda antar provider; mengetik manual rawan salah dan menghasilkan galat 400 yang membingungkan. Tetapi tidak semua provider menyediakan daftar model, jadi jalur manual tidak boleh dihapus.
+
+**Konsekuensi:**
+- Memuat daftar butuh endpoint + key yang valid; dialog menampilkan galat bila gagal.
+- Daftar diurutkan dan dibersihkan dari duplikat sebelum ditampilkan.
+- Pilihan disimpan sebagai nama model saja, bukan id internal provider.
+
+---
+
+## D11 — Streaming memakai SSE, hasil disimpan sekali di akhir
+
+**Keputusan:** Balasan diambil lewat Server-Sent Events dengan `stream: true`. Potongan ditampilkan langsung tetapi **tidak** ditulis ke database per token; hanya hasil akhir yang disimpan.
+
+**Alasan:** Satu baris database per token berarti puluhan sampai ribuan tulis untuk satu balasan, dengan manfaat nol — yang perlu bertahan setelah app ditutup hanya teks akhirnya. Membaca ulang riwayat selalu menghasilkan yang sama.
+
+**Konsekuensi:**
+- Kalau app mati di tengah stream, balasan yang sedang berjalan hilang. Ini diterima; alternatifnya jauh lebih mahal.
+- Tombol Stop menyimpan teks sebagian dengan status `FAILED`, sehingga usaha pengguna tidak lenyap.
+- Provider yang mengabaikan `stream: true` tetap dilayani: balasan JSON biasa dibaca lewat jalur non-streaming.

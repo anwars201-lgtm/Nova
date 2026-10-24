@@ -4,10 +4,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -36,6 +38,7 @@ import dev.local.nova.net.ApiClient
 import dev.local.nova.net.Endpoint
 import dev.local.nova.net.EndpointResult
 import dev.local.nova.net.ModelsResult
+import dev.local.nova.net.ModelList
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -53,6 +56,11 @@ fun SettingsScreen(onBack: () -> Unit) {
     var busy by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf<String?>(null) }
     var statusIsError by remember { mutableStateOf(false) }
+    var showModelDialog by remember { mutableStateOf(false) }
+    var availableModels by remember { mutableStateOf<List<String>>(emptyList()) }
+    var loadingModels by remember { mutableStateOf(false) }
+    var modelQuery by remember { mutableStateOf("") }
+    var modelError by remember { mutableStateOf<String?>(null) }
 
     fun report(message: String, isError: Boolean) {
         status = message
@@ -142,9 +150,96 @@ fun SettingsScreen(onBack: () -> Unit) {
                 placeholder = { Text("gpt-4o-mini") },
                 singleLine = true,
                 supportingText = {
-                    Text("Nama model diketik manual. Daftar hasil uji koneksi hanya untuk memeriksa ketersediaan.")
+                    Text("Diketik manual, atau muat daftar dari provider lalu pilih.")
                 },
             )
+
+            OutlinedButton(
+                onClick = {
+                    val url = validated() ?: return@OutlinedButton
+                    loadingModels = true
+                    modelError = null
+                    scope.launch {
+                        when (val result = apiClient.listModels(url, apiKey)) {
+                            is ModelsResult.Success -> {
+                                availableModels = ModelList.normalize(result.models)
+                                showModelDialog = true
+                            }
+
+                            is ModelsResult.Failure -> {
+                                modelError = result.message
+                                showModelDialog = true
+                            }
+                        }
+                        loadingModels = false
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !loadingModels,
+            ) {
+                Text(if (loadingModels) "Memuat model…" else "Muat daftar model dari provider")
+            }
+
+            if (showModelDialog) {
+                AlertDialog(
+                    onDismissRequest = { showModelDialog = false },
+                    title = { Text("Pilih model") },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedTextField(
+                                value = modelQuery,
+                                onValueChange = { modelQuery = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Cari") },
+                                singleLine = true,
+                            )
+
+                            modelError?.let {
+                                Text(
+                                    text = it,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                            }
+
+                            if (loadingModels) {
+                                CircularProgressIndicator()
+                            }
+
+                            Column(
+                                modifier = Modifier
+                                    .heightIn(max = 320.dp)
+                                    .verticalScroll(rememberScrollState()),
+                                verticalArrangement = Arrangement.spacedBy(2.dp),
+                            ) {
+                                val visible = ModelList.filter(availableModels, modelQuery)
+                                if (visible.isEmpty() && modelError == null) {
+                                    Text(
+                                        text = if (availableModels.isEmpty()) {
+                                            "Provider tidak mengembalikan daftar model. Ketik nama model manual."
+                                        } else {
+                                            "Tidak ada yang cocok."
+                                        },
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                visible.forEach { name ->
+                                    TextButton(
+                                        onClick = {
+                                            model = name
+                                            showModelDialog = false
+                                        },
+                                    ) { Text(name) }
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { showModelDialog = false }) { Text("Tutup") }
+                    },
+                )
+            }
 
             Button(
                 onClick = {

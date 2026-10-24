@@ -1,15 +1,14 @@
 # Status proyek
 
 Diperbarui: 2026-10-24
-Siklus terakhir: **4 — layar chat + kirim pesan non-streaming** (selesai, menunggu uji di device)
-Tahap: percakapan bisa dikirim dan disimpan, belum streaming
+Siklus terakhir: **5 — pemilih model dari provider + streaming** (selesai, menunggu uji di device)
+Tahap: chat streaming berjalan, model dipilih dari daftar provider
 
 ## Posisi sekarang
 
-`Nova` punya database lokal, penyimpanan token terenkripsi, layar Pengaturan berisi
-base URL + API key, dan tombol "Uji koneksi" yang memanggil endpoint daftar model.
-
-Tidak ada backend sendiri (D7). Hanya endpoint **https** yang diterima (D8).
+`Nova` adalah klien chat Android tanpa backend. Pengguna mengisi endpoint https + API key,
+memilih model dari daftar yang diambil langsung dari provider, lalu mengobrol dengan
+balasan yang mengalir token demi token.
 
 | Hal | Nilai |
 |---|---|
@@ -17,85 +16,62 @@ Tidak ada backend sendiri (D7). Hanya endpoint **https** yang diterima (D8).
 | Package debug | `dev.local.nova.debug` |
 | Versi | 0.1.0 |
 | APK | `app/build/outputs/apk/debug/app-debug.apk` |
-| SHA-256 | `20dabc1927c9db087f24a0c36736da61864502aafe8b6b66e192368ba6529977` |
-| Ukuran | 11.711.187 byte |
+| SHA-256 | `486301e751d78442057d6f79ac3265c450b7d09fde3bc966c5a4ec65e57f30f8` |
+| Ukuran | 11.737.993 byte |
 
 ## Selesai (terverifikasi)
 
-Siklus 1-3 sebelumnya: kerangka Compose, SQLite + SecureStore (8/8 diagnostik di device), layar Pengaturan https dengan uji koneksi.
+Siklus 1–4: kerangka Compose, SQLite + SecureStore (8/8 diagnostik di device), layar
+Pengaturan https dengan uji koneksi, layar chat dengan kirim non-streaming.
 
-Siklus 4:
+Siklus 5:
 
-- [x] `ChatClient.complete` — POST chat completions, `stream: false`, timeout baca 120 detik, galat per kode HTTP
-- [x] `Endpoint.chatUrl` — versi ditambahkan sekali saja
-- [x] `MessageText.prepare` — rapikan input, tolak kosong dan >32.000 karakter
-- [x] Kolom **Model** manual di Pengaturan, disimpan di prefs
-- [x] `HomeScreen` → daftar thread + tombol "Chat baru"
-- [x] `ChatScreen` → riwayat dari database, kirim, tampilkan galat, auto-scroll
-- [x] Judul thread otomatis dari pesan pertama (`ThreadTitle.derive`)
-- [x] Navigasi Home ↔ Chat ↔ Pengaturan lewat rute string
-- [x] Unit test JVM: **26 tes, 0 gagal** (Endpoint 12, MessageText 4, Wire 4, ThreadTitle 6)
-- [x] Build lulus: `BUILD SUCCESSFUL in 1m 49s`
+- [x] `SseParser` — pembaca `data:` baris SSE, penanda `[DONE]`, galat tengah stream (8 tes)
+- [x] `ModelList` — normalisasi (rapi, unik, terurut) dan pencarian tanpa peduli huruf (4 tes)
+- [x] `ChatClient.stream` — POST `stream: true`, fallback ke JSON biasa bila server mengabaikan SSE
+- [x] Pembatalan lewat `Job.cancel()` + `ensureActive()`, koneksi ditutup di `finally`
+- [x] Dialog "Pilih model": muat dari provider, kolom cari, klik untuk memilih
+- [x] Kolom model tetap bisa diketik manual bila provider tidak punya daftar
+- [x] `ChatScreen`: teks mengalir saat masuk, tombol **Stop** saat berjalan
+- [x] Hasil akhir disimpan sebagai satu pesan; teks sebagian saat Stop disimpan status `FAILED`
+- [x] Unit test JVM: **38 tes, 0 gagal** (Endpoint 12, SseParser 8, ThreadTitle 6, MessageText 4, ModelList 4, Wire 4)
+- [x] Build lulus: `BUILD SUCCESSFUL in 2m 3s`
 - [x] Signature v2 terverifikasi
 
 ### Bukti
 
 ```
 bash scripts/build.sh assembleDebug testDebugUnitTest
-→ BUILD SUCCESSFUL in 1m 49s
-→ 26 tes, 0 gagal
+→ BUILD SUCCESSFUL in 2m 3s
+→ 38 tes, 0 gagal
 → app/build/outputs/apk/debug/app-debug.apk
-→ sha256 20dabc19...6529977
+→ sha256 486301e7...57f30f8
 → apksigner verify: Verifies (v2)
 ```
 
 ## Tidak selesai (sengaja)
 
-- Streaming token belum ada (siklus 5).
-- Belum ada tombol batalkan, retry, atau hapus pesan.
-- Belum ada pemilihan model dari daftar hasil uji koneksi — model diketik manual (keputusan pengguna).
+- Belum ada retry per pesan, hapus pesan, atau salin teks.
+- Belum ada `max_tokens`, temperature, atau parameter lanjutan.
+- Belum ada system prompt / memori (siklus 6).
 - Migrasi skema masih belum ada (VERSION 1).
 
 ## Catatan
 
-- `scripts/build.sh` sekarang memakai `pipefail`; sebelumnya kegagalan Gradle tertutup oleh `tail` dan skrip melaporkan exit 0.
-- Tiga kegagalan kompilasi di siklus ini: `ExtendedFloatingActionButton(text = {...})` tidak cocok (pakai lambda konten), `mutableStateOf` tanpa impor `setValue`, dan `produceState(initialValue = null)` yang menyimpulkan tipe `Nothing` (perlu `produceState<Thread?>`).
-- Riwayat selalu dibaca ulang dari database setelah kirim, bukan dari state memori.
+- Streaming menulis ke database **sekali** di akhir, bukan per token. Isi sementara ada di memori.
+- `testImplementation("org.json:json:20240303")` ditambahkan agar `SseParser` bisa diuji di JVM; aplikasi tetap memakai `org.json` dari Android SDK.
+- SSE diuji dengan `org.json` sungguhan di JVM, bukan tiruan.
 
-## Tidak selesai (sengaja)
-
-- Belum ada layar chat, pengiriman pesan, atau streaming.
-- Uji koneksi belum dijalankan terhadap provider nyata (butuh key dari pengguna).
-- Migrasi skema masih belum ada (VERSION 1).
-
-## Catatan
-
-- `org.json` dan `HttpURLConnection` dipakai dari SDK, bukan pustaka tambahan. Build di perangkat ini mahal, jadi menambah dependensi harus punya alasan kuat.
-- `Endpoint` sengaja bebas dari kelas Android agar bisa diuji di JVM.
-- Semua field teks pada layar Pengaturan memakai `remember`, bukan `rememberSaveable`: nilai sensitif tidak perlu masuk Bundle.
-- `MainActivity` memakai rute string sederhana, belum memakai Navigation Compose.
-
-## Berikutnya (usulan siklus 4)
-
-1. Layar chat: daftar thread, buat thread baru, judul otomatis dari pesan pertama
-2. Kirim pesan non-streaming: simpan pesan user, panggil chat completions, simpan balasan
-3. Tampilkan riwayat dari database setelah app ditutup
-4. Uji: percakapan bertahan setelah restart
-
-## Antrean siklus
+## Berikutnya (antrean)
 
 | Siklus | Isi | Syarat |
 |---|---|---|
-| 4 | ~~Layar chat + kirim pesan non-streaming~~ (selesai) | — |
-| 5 | Streaming token + tombol batalkan | siklus 4 selesai |
 | 6 | Personalisasi: system prompt, memori, reasoning effort | siklus 5 |
 | 7 | **Release hardening** (D9): R8, keystore rilis, jalur migrasi teruji | sebelum rilis pertama |
-| 8+ | Perubahan tampilan, fitur tambahan, penyempurnaan | kapan saja setelah rilis |
-
-Perubahan tampilan dan fitur baru tetap boleh setelah rilis; yang dikunci hanya identitas, signature, dan migrasi (D9).
+| 8+ | Perubahan tampilan dan fitur tambahan | kapan saja setelah rilis |
 
 ## Belum diputuskan
 
-- ~~Model default: manual atau otomatis~~ — manual (keputusan pengguna)
-- Penanganan galat saat kirim pesan: dialog atau pesan sistem di dalam thread
-- Penanganan galat: banner saat ini; apakah perlu tombol "coba lagi" per pesan
+- Apakah memori disimpan lokal di SQLite atau sebagai bagian system prompt yang dikirim setiap permintaan
+- Penanganan galat per pesan: banner (sekarang) atau tombol "coba lagi"
+- Apakah perlu pilihan temperature/max tokens di Pengaturan

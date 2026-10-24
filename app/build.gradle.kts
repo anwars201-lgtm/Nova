@@ -50,4 +50,6 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
 
     testImplementation("junit:junit:4.13.2")
+    // org.json murni Java untuk pengujian JVM; aplikasi memakai versi dari Android SDK.
+    testImplementation("org.json:json:20240303")
 }
