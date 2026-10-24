@@ -1,7 +1,7 @@
 # Status proyek
 
 Diperbarui: 2026-10-24
-Siklus terakhir: **6 — memori lokal + injeksi system prompt** (selesai, menunggu uji di device)
+Siklus terakhir: **6 — memori lokal + injeksi system prompt** (selesai, migrasi terverifikasi di device)
 Tahap: personalisasi dasar berjalan, skema database v2
 
 ## Posisi sekarang
@@ -34,6 +34,7 @@ menyertakan system prompt manual serta blok memori aktif dari SQLite.
 - [x] Unit test JVM: **49 tes, 0 gagal**
 - [x] Build lulus: `BUILD SUCCESSFUL in 1m 40s`
 - [x] Signature v2 terverifikasi
+- [x] Migrasi v1 -> v2 terverifikasi di device: riwayat chat lama tetap utuh setelah update (konfirmasi pengguna, 2026-10-24)
 
 ### Bukti
 
@@ -55,8 +56,9 @@ bash scripts/build.sh assembleDebug testDebugUnitTest
 
 ## Catatan
 
-- Migrasi v1 → v2 hanya menambah tabel; chat lama tidak disentuh. Uji nyata: pasang APK ini
-  di atas instalasi siklus 5, riwayat harus tetap ada dan diagnostik memori lulus.
+- Migrasi v1 → v2 hanya menambah tabel; chat lama tidak disentuh. **Sudah diuji di device:**
+  APK dipasang di atas instalasi siklus 5, riwayat chat tetap ada.
+- Diagnostik baru (13 pemeriksaan termasuk 5 memori) belum dikonfirmasi terpisah di layar.
 - Batas karakter menghitung seluruh system prompt (manual + memori), supaya penambahan
   prompt manual otomatis mengurangi ruang memori.
 - Entri yang tidak kebagian tempat dilewati utuh, bukan dipotong di tengah kalimat.
