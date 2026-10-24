@@ -1,13 +1,16 @@
 # Status proyek
 
 Diperbarui: 2026-10-24
-Siklus terakhir: **2 — lapisan data & penyimpanan rahasia** (selesai, menunggu uji di device)
-Tahap: fondasi data siap, belum ada API
+Siklus terakhir: **2 — lapisan data & penyimpanan rahasia** (selesai, terverifikasi di device)
+Tahap: fondasi data siap, belum ada klien API
 
 ## Posisi sekarang
 
 Aplikasi `Nova` punya database lokal, repository thread/pesan, dan penyimpanan token terenkripsi.
 Layar beranda menampilkan kartu diagnostik yang menjalankan pemeriksaan nyata di perangkat.
+
+Arah produk berubah: **tanpa backend sendiri** (D7). Pengguna memasukkan base URL kompatibel OpenAI
+dan API key sendiri. Tidak ada akun, tidak ada sinkronisasi.
 
 | Hal | Nilai |
 |---|---|
@@ -30,6 +33,7 @@ Layar beranda menampilkan kartu diagnostik yang menjalankan pemeriksaan nyata di
 - [x] Unit test JVM: **10 tes, 0 gagal** (`ThreadTitleTest` 6, `WireValueTest` 4)
 - [x] Build lulus: `BUILD SUCCESSFUL in 2m 30s`, 44 task
 - [x] Signature v2 terverifikasi
+- [x] Diagnostik di perangkat: **8/8 lulus**, mode gelap aktif (konfirmasi pengguna, 2026-10-24)
 
 ### Bukti
 
@@ -41,28 +45,33 @@ bash scripts/build.sh assembleDebug testDebugUnitTest
 → sha256 3cdbbe35...b897ea
 ```
 
+Di perangkat: "Diagnostik: 8 pemeriksaan lulus" — semua baris centang.
+
 ## Tidak selesai (sengaja)
 
-- Pemeriksaan `SelfTest` di device belum dikonfirmasi pengguna untuk siklus ini.
 - Belum ada migrasi skema (VERSION masih 1).
-- Belum ada API, auth, atau layar chat.
+- Belum ada klien API, pengaturan, atau layar chat.
+- Fitur sinkronisasi dan akun dibatalkan oleh D7.
 
 ## Catatan
 
-- SQLite dan AndroidKeyStore tidak bisa diuji di JVM pada lingkungan ini (bionic, tanpa emulator). Karena itu kebenarannya dibuktikan lewat `SelfTest` di perangkat, bukan unit test.
-- `scripts/build.sh` sekarang menerima beberapa task Gradle sekaligus (`assembleDebug testDebugUnitTest`).
+- SQLite dan AndroidKeyStore tidak bisa diuji di JVM pada lingkungan ini (bionic, tanpa emulator). Kebenarannya dibuktikan lewat `SelfTest` di perangkat.
+- `scripts/build.sh` menerima beberapa task Gradle sekaligus (`assembleDebug testDebugUnitTest`).
 - `buildConfig = true` diaktifkan agar layar diagnostik bisa dibatasi ke build debug.
 - `Column` tidak punya `contentPadding`; padding lewat modifier.
 
 ## Berikutnya (usulan siklus 3)
 
-1. Klien API: base URL, header `Authorization`, endpoint `/v1/models`
-2. DTO + parsing JSON (kotlinx.serialization)
-3. Layar chat minimal: daftar pesan dari database, kirim pesan tanpa streaming dulu
-4. Pengujian: pesan tersimpan dan terbaca setelah app ditutup
+Siklus pengaturan koneksi — belum ada chat, hanya memastikan koneksi bisa diatur dan diuji.
+
+1. Layar Pengaturan: kolom base URL dan API key, disimpan lewat `SecureStore`
+2. Normalisasi input: buang trailing slash, tolak skema selain http/https
+3. Tombol "Uji koneksi" memanggil endpoint daftar model standar OpenAI
+4. Tampilkan hasil: jumlah model, contoh beberapa nama, atau pesan galat yang bisa dibaca
+5. API key disimpan terenkripsi dan hanya ditampilkan tersamar (misal `sk-…abcd`)
 
 ## Belum diputuskan
 
-- Basis URL backend: milik sendiri atau mock lokal
-- Format kredensial: API key saja atau juga OAuth
-- Apakah memori dan skills dibuat server-side atau lokal
+- Kebijakan HTTP: apakah endpoint `http://` (LAN, LM Studio, Ollama) diizinkan atau wajib https
+- Apakah memori dan skills dibuat lokal atau tidak sama sekali
+- Dukungan provider yang tidak menyediakan endpoint daftar model

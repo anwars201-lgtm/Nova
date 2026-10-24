@@ -61,3 +61,17 @@ Hanya keputusan yang bertahan lama. Satu keputusan = satu blok, berisi apa dan k
 **Alasan:** Pola yang sudah benar dan murah ditiru. Menyimpan token plaintext di SharedPreferences terlalu berisiko untuk aplikasi yang memegang riwayat percakapan.
 
 **Konsekuensi:** Uninstall menghapus kunci keystore, sehingga pengguna harus login ulang. Ini perilaku yang diterima, bukan bug.
+
+---
+
+## D7 — Tanpa backend sendiri: endpoint dan API key milik pengguna
+
+**Keputusan:** Aplikasi tidak memakai server Nova. Pengguna memasukkan sendiri base URL yang kompatibel OpenAI dan API key-nya. Tidak ada akun, tidak ada sinkronisasi, tidak ada data yang lewat server perantara.
+
+**Alasan:** Menghilangkan seluruh beban backend (auth, kuota, penyimpanan, moderasi, biaya). Semua data percakapan tetap di perangkat. Ini juga membuat aplikasi berguna untuk provider apa pun: OpenAI, OpenRouter, Groq, Together, vLLM, LM Studio, Ollama, llama.cpp.
+
+**Konsekuensi:**
+- Tidak ada sinkronisasi antar perangkat. Fitur ini keluar dari ruang lingkup.
+- Kualitas dan biaya sepenuhnya tanggungan pengguna; aplikasi tidak bisa menegakkan kuota.
+- Model list diambil dari `GET {base}/models`; tidak semua provider mengimplementasikannya dengan bentuk sama, jadi perlu fallback manual.
+- Pengaturan endpoint disimpan bersama API key dan bisa diubah kapan saja.
