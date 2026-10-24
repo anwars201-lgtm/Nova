@@ -5,6 +5,7 @@
 # Kenapa env ini diset di sini: shell aplikasi tidak mengekspor JAVA_HOME,
 # dan Gradle/Toolchain default mengarah ke direktori Termux yang tidak ada.
 set -e
+set -o pipefail
 
 
 PREFIX="${PREFIX:-/data/user/0/com.androidharness.app/files/linux}"

@@ -48,6 +48,7 @@ fun SettingsScreen(onBack: () -> Unit) {
 
     var baseUrl by remember { mutableStateOf(settings.baseUrl.orEmpty()) }
     var apiKey by remember { mutableStateOf(settings.apiKey.orEmpty()) }
+    var model by remember { mutableStateOf(settings.defaultModel.orEmpty()) }
     var keyVisible by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf<String?>(null) }
@@ -133,11 +134,24 @@ fun SettingsScreen(onBack: () -> Unit) {
                 },
             )
 
+            OutlinedTextField(
+                value = model,
+                onValueChange = { model = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Model") },
+                placeholder = { Text("gpt-4o-mini") },
+                singleLine = true,
+                supportingText = {
+                    Text("Nama model diketik manual. Daftar hasil uji koneksi hanya untuk memeriksa ketersediaan.")
+                },
+            )
+
             Button(
                 onClick = {
                     val url = validated() ?: return@Button
                     settings.baseUrl = url
                     settings.apiKey = apiKey
+                    settings.defaultModel = model.trim().ifBlank { null }
                     report("Tersimpan. ${Endpoint.maskKey(apiKey)}", isError = false)
                 },
                 modifier = Modifier.fillMaxWidth(),

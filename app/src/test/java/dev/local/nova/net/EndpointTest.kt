@@ -76,6 +76,18 @@ class EndpointTest {
     }
 
     @Test
+    fun `chatUrl menambah versi sekali saja`() {
+        assertEquals(
+            "https://api.openai.com/v1/chat/completions",
+            Endpoint.chatUrl("https://api.openai.com"),
+        )
+        assertEquals(
+            "https://api.openai.com/v1/chat/completions",
+            Endpoint.chatUrl("https://api.openai.com/v1/"),
+        )
+    }
+
+    @Test
     fun `maskKey tidak membocorkan isi`() {
         val key = "sk-proj-abcdefghijklmnop"
         val masked = Endpoint.maskKey(key)

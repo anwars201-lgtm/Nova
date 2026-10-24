@@ -1,15 +1,18 @@
 package dev.local.nova.ui.home
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -17,23 +20,45 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import dev.local.nova.BuildConfig
+import dev.local.nova.data.NovaDatabase
+import dev.local.nova.data.ThreadRepository
+import dev.local.nova.data.model.Thread
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.text.DateFormat
+import java.util.Date
 
-private data class NextStep(val title: String, val detail: String, val done: Boolean)
-
-private val steps = listOf(
-    NextStep("Kerangka aplikasi", "Struktur proyek, tema, build script", true),
-    NextStep("Lapisan data", "SQLite threads dan messages, kredensial terenkripsi", false),
-    NextStep("Klien API", "Base URL, auth, daftar model", false),
-    NextStep("Streaming chat", "Kirim pesan dan tampilkan token masuk", false),
-    NextStep("Personalisasi", "Memori, skills, custom instructions", false),
-)
-
+/**
+ * Daftar percakapan.
+ *
+ * Thread dibuat saat tombol "Chat baru" ditekan, bukan saat pesan pertama dikirim:
+ * pengguna langsung masuk ke layar percakapan kosong, dan judul diambil dari pesan
+ * pertama begitu ada isinya.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(onOpenSettings: () -> Unit = {}) {
+fun HomeScreen(
+    onOpenSettings: () -> Unit,
+    onOpenThread: (String) -> Unit,
+) {
+    val context = LocalContext.current
+    val repository = remember { ThreadRepository(NovaDatabase(context)) }
+
+    var reloadKey by remember { mutableIntStateOf(0) }
+    val threads by produceState<List<Thread>>(initialValue = emptyList(), reloadKey) {
+        value = withContext(Dispatchers.IO) { repository.threads() }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -46,57 +71,89 @@ fun HomeScreen(onOpenSettings: () -> Unit = {}) {
                 ),
             )
         },
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                onClick = {
+                    val thread = repository.createThread()
+                    reloadKey++
+                    onOpenThread(thread.id)
+                },
+            ) {
+                Text("Chat baru")
+            }
+        },
     ) { innerPadding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(innerPadding),
         ) {
-            Text(
-                text = "Versi 0.1.0",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = "Dibangun bertahap, satu siklus per fitur.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
-            steps.forEach { step ->
-                StepCard(step)
-            }
-
-            if (BuildConfig.DEBUG) {
-                DiagnosticsCard()
+            if (threads.isEmpty()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 24.dp),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        text = "Belum ada percakapan",
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        text = "Atur endpoint dan API key di Pengaturan, lalu mulai chat baru.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 6.dp),
+                    )
+                    if (BuildConfig.DEBUG) {
+                        Box(modifier = Modifier.padding(top = 24.dp)) { DiagnosticsCard() }
+                    }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                        start = 16.dp,
+                        end = 16.dp,
+                        top = 8.dp,
+                        bottom = 96.dp,
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(threads, key = { it.id }) { thread ->
+                        ThreadRow(thread = thread, onClick = { onOpenThread(thread.id) })
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-private fun StepCard(step: NextStep) {
+private fun ThreadRow(thread: Thread, onClick: () -> Unit) {
+    val formatter = remember { DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT) }
+
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(
-            containerColor = if (step.done) {
-                MaterialTheme.colorScheme.primaryContainer
-            } else {
-                MaterialTheme.colorScheme.surfaceVariant
-            },
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
         ),
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(14.dp)) {
             Text(
-                text = if (step.done) "✓ ${step.title}" else step.title,
-                style = MaterialTheme.typography.titleMedium,
+                text = thread.title,
+                style = MaterialTheme.typography.titleSmall,
+                maxLines = 1,
             )
             Text(
-                text = step.detail,
-                style = MaterialTheme.typography.bodySmall,
+                text = buildString {
+                    thread.model?.let { append(it).append(" · ") }
+                    append(formatter.format(Date(thread.updatedAt)))
+                },
+                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }

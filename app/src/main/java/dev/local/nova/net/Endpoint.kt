@@ -72,13 +72,14 @@ object Endpoint {
      * Menyusun URL daftar model dari base yang sudah divalidasi.
      * Kalau base sudah berakhiran versi (`/v1`), tidak ditambahkan lagi.
      */
-    fun modelsUrl(baseUrl: String): String {
+    fun modelsUrl(baseUrl: String): String = "${apiRoot(baseUrl)}/models"
+
+    /** Menyusun URL chat completions dari base yang sudah divalidasi. */
+    fun chatUrl(baseUrl: String): String = "${apiRoot(baseUrl)}/chat/completions"
+
+    private fun apiRoot(baseUrl: String): String {
         val base = baseUrl.trimEnd('/')
-        return if (base.endsWith(API_PREFIX)) {
-            "$base/models"
-        } else {
-            "$base$API_PREFIX/models"
-        }
+        return if (base.endsWith(API_PREFIX)) base else base + API_PREFIX
     }
 
     /** Menyamarkan API key untuk ditampilkan. Tidak pernah menampilkan utuh. */

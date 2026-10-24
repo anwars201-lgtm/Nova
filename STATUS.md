@@ -1,8 +1,8 @@
 # Status proyek
 
 Diperbarui: 2026-10-24
-Siklus terakhir: **3 — pengaturan koneksi** (selesai, menunggu uji di device)
-Tahap: koneksi bisa diatur, belum ada chat
+Siklus terakhir: **4 — layar chat + kirim pesan non-streaming** (selesai, menunggu uji di device)
+Tahap: percakapan bisa dikirim dan disimpan, belum streaming
 
 ## Posisi sekarang
 
@@ -17,32 +17,50 @@ Tidak ada backend sendiri (D7). Hanya endpoint **https** yang diterima (D8).
 | Package debug | `dev.local.nova.debug` |
 | Versi | 0.1.0 |
 | APK | `app/build/outputs/apk/debug/app-debug.apk` |
-| SHA-256 | `fd3bb1e2c4823417387a2c2a6548d11b04f9151c37add1ba710d24f537234004` |
-| Ukuran | 11.642.274 byte |
+| SHA-256 | `20dabc1927c9db087f24a0c36736da61864502aafe8b6b66e192368ba6529977` |
+| Ukuran | 11.711.187 byte |
 
 ## Selesai (terverifikasi)
 
-- [x] `Endpoint.parse` — normalisasi URL, wajib https, tolak userinfo/query/spasi, port dipertahankan
-- [x] `Endpoint.modelsUrl` — menambahkan `/v1` hanya bila belum ada
-- [x] `Endpoint.maskKey` — key tidak pernah ditampilkan utuh
-- [x] `ApiClient.listModels` — `HttpURLConnection`, timeout 15/20 detik, pesan galat per kode HTTP
-- [x] `AppSettings` — base URL di prefs, API key di `SecureStore`
-- [x] `SettingsScreen` — dua kolom, tombol Simpan, Uji koneksi, status, indikator proses
-- [x] Navigasi Home ↔ Pengaturan lewat `rememberSaveable`
-- [x] Unit test JVM: **21 tes, 0 gagal** (EndpointTest 11, WireValueTest 4, ThreadTitleTest 6)
-- [x] Build lulus: `BUILD SUCCESSFUL in 1m 22s`, 44 task
+Siklus 1-3 sebelumnya: kerangka Compose, SQLite + SecureStore (8/8 diagnostik di device), layar Pengaturan https dengan uji koneksi.
+
+Siklus 4:
+
+- [x] `ChatClient.complete` — POST chat completions, `stream: false`, timeout baca 120 detik, galat per kode HTTP
+- [x] `Endpoint.chatUrl` — versi ditambahkan sekali saja
+- [x] `MessageText.prepare` — rapikan input, tolak kosong dan >32.000 karakter
+- [x] Kolom **Model** manual di Pengaturan, disimpan di prefs
+- [x] `HomeScreen` → daftar thread + tombol "Chat baru"
+- [x] `ChatScreen` → riwayat dari database, kirim, tampilkan galat, auto-scroll
+- [x] Judul thread otomatis dari pesan pertama (`ThreadTitle.derive`)
+- [x] Navigasi Home ↔ Chat ↔ Pengaturan lewat rute string
+- [x] Unit test JVM: **26 tes, 0 gagal** (Endpoint 12, MessageText 4, Wire 4, ThreadTitle 6)
+- [x] Build lulus: `BUILD SUCCESSFUL in 1m 49s`
 - [x] Signature v2 terverifikasi
 
 ### Bukti
 
 ```
 bash scripts/build.sh assembleDebug testDebugUnitTest
-→ BUILD SUCCESSFUL in 1m 22s
-→ EndpointTest 11, WireValueTest 4, ThreadTitleTest 6 — 0 gagal
+→ BUILD SUCCESSFUL in 1m 49s
+→ 26 tes, 0 gagal
 → app/build/outputs/apk/debug/app-debug.apk
-→ sha256 fd3bb1e2...234004
+→ sha256 20dabc19...6529977
 → apksigner verify: Verifies (v2)
 ```
+
+## Tidak selesai (sengaja)
+
+- Streaming token belum ada (siklus 5).
+- Belum ada tombol batalkan, retry, atau hapus pesan.
+- Belum ada pemilihan model dari daftar hasil uji koneksi — model diketik manual (keputusan pengguna).
+- Migrasi skema masih belum ada (VERSION 1).
+
+## Catatan
+
+- `scripts/build.sh` sekarang memakai `pipefail`; sebelumnya kegagalan Gradle tertutup oleh `tail` dan skrip melaporkan exit 0.
+- Tiga kegagalan kompilasi di siklus ini: `ExtendedFloatingActionButton(text = {...})` tidak cocok (pakai lambda konten), `mutableStateOf` tanpa impor `setValue`, dan `produceState(initialValue = null)` yang menyimpulkan tipe `Nothing` (perlu `produceState<Thread?>`).
+- Riwayat selalu dibaca ulang dari database setelah kirim, bukan dari state memori.
 
 ## Tidak selesai (sengaja)
 
@@ -68,8 +86,8 @@ bash scripts/build.sh assembleDebug testDebugUnitTest
 
 | Siklus | Isi | Syarat |
 |---|---|---|
-| 4 | Layar chat + kirim pesan non-streaming | koneksi sudah diuji |
-| 5 | Streaming token + tombol batalkan | siklus 4 |
+| 4 | ~~Layar chat + kirim pesan non-streaming~~ (selesai) | — |
+| 5 | Streaming token + tombol batalkan | siklus 4 selesai |
 | 6 | Personalisasi: system prompt, memori, reasoning effort | siklus 5 |
 | 7 | **Release hardening** (D9): R8, keystore rilis, jalur migrasi teruji | sebelum rilis pertama |
 | 8+ | Perubahan tampilan, fitur tambahan, penyempurnaan | kapan saja setelah rilis |
@@ -78,6 +96,6 @@ Perubahan tampilan dan fitur baru tetap boleh setelah rilis; yang dikunci hanya 
 
 ## Belum diputuskan
 
-- Model default: dipilih manual atau diambil dari hasil uji koneksi
+- ~~Model default: manual atau otomatis~~ — manual (keputusan pengguna)
 - Penanganan galat saat kirim pesan: dialog atau pesan sistem di dalam thread
-- Apakah streaming masuk siklus 5 atau langsung di siklus 4
+- Penanganan galat: banner saat ini; apakah perlu tombol "coba lagi" per pesan
