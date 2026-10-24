@@ -18,6 +18,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import dev.local.nova.BuildConfig
 
 private data class NextStep(val title: String, val detail: String, val done: Boolean)
 
@@ -63,6 +64,10 @@ fun HomeScreen() {
 
             steps.forEach { step ->
                 StepCard(step)
+            }
+
+            if (BuildConfig.DEBUG) {
+                DiagnosticsCard()
             }
         }
     }

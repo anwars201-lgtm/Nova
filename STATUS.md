@@ -1,66 +1,68 @@
 # Status proyek
 
 Diperbarui: 2026-10-24
-Siklus terakhir: **1 — kerangka aplikasi** (selesai)
-Tahap: kerangka terpasang, belum ada fitur
+Siklus terakhir: **2 — lapisan data & penyimpanan rahasia** (selesai, menunggu uji di device)
+Tahap: fondasi data siap, belum ada API
 
 ## Posisi sekarang
 
-Aplikasi `Nova` sudah ada, bisa di-build, dan bisa dipasang. Isinya baru satu layar beranda statis.
+Aplikasi `Nova` punya database lokal, repository thread/pesan, dan penyimpanan token terenkripsi.
+Layar beranda menampilkan kartu diagnostik yang menjalankan pemeriksaan nyata di perangkat.
 
 | Hal | Nilai |
 |---|---|
 | Nama kerja | Nova |
 | Package debug | `dev.local.nova.debug` |
-| Package release | `dev.local.nova` |
 | Versi | 0.1.0 |
 | APK | `app/build/outputs/apk/debug/app-debug.apk` |
-| SHA-256 | `79f9d73f879a8a1f5744d6473b54379110a2409352ce0eb36fa165910a48d864` |
-| Ukuran | 11.567.262 byte |
+| SHA-256 | `3cdbbe3504cab3bf4bbe46aae2ba4d254fd321f320b4f0e8782ebeeb7eb897ea` |
+| Ukuran | 11.604.270 byte |
 
 ## Selesai (terverifikasi)
 
-- [x] Struktur Gradle: root + modul `app`, plugin AGP 9.4.1 dan Compose 2.4.21
-- [x] Tema Material3 dengan dukungan dynamic color dan mode gelap
-- [x] Layar beranda `HomeScreen` berisi daftar langkah berikutnya
-- [x] `scripts/build.sh` — satu perintah untuk build dan hash
-- [x] Build lulus: `BUILD SUCCESSFUL in 1m 16s`, 36 task
-- [x] Signature v2 terverifikasi (`apksigner verify` → Verifies)
-- [x] `aapt2 dump badging` membaca package, minSdk 26, targetSdk 36
-- [x] Terpasang dan berjalan di device: layar beranda tampil, back normal, mode gelap mengikuti sistem
+- [x] Model: `Thread`, `Message`, `MessageRole`, `MessageStatus`
+- [x] `ThreadTitle.derive` — judul dari pesan pertama, potong di batas kata
+- [x] `NovaDatabase` — SQLite v1: tabel `threads`, `messages`, `app_meta` + indeks; foreign key diaktifkan
+- [x] `ThreadRepository` — buat/baca/rename/pin/hapus thread, tambah/baca/hitung pesan, cascade
+- [x] `SecureStore` — AES-256-GCM dengan kunci di AndroidKeyStore, ciphertext di prefs
+- [x] `SelfTest` — 8 pemeriksaan di perangkat (tabel, insert, urutan, cascade, enkripsi, hapus, kebersihan)
+- [x] `DiagnosticsCard` di layar beranda, hanya build debug
+- [x] Unit test JVM: **10 tes, 0 gagal** (`ThreadTitleTest` 6, `WireValueTest` 4)
+- [x] Build lulus: `BUILD SUCCESSFUL in 2m 30s`, 44 task
+- [x] Signature v2 terverifikasi
 
 ### Bukti
 
 ```
-bash scripts/build.sh assembleDebug
-→ BUILD SUCCESSFUL in 1m 16s
+bash scripts/build.sh assembleDebug testDebugUnitTest
+→ BUILD SUCCESSFUL in 2m 30s
+→ app/build/test-results/testDebugUnitTest: 10 tes, 0 gagal
 → app/build/outputs/apk/debug/app-debug.apk
-→ sha256 79f9d73f...a48d864
+→ sha256 3cdbbe35...b897ea
 ```
-
-Uji di perangkat (laporan pengguna, 2026-10-24): instalasi berhasil, semua fungsi normal.
 
 ## Tidak selesai (sengaja)
 
-- Tidak ada data layer, API, atau navigasi. Itu siklus 2 dan seterusnya.
-- Ikon launcher masih ikon bawaan Android.
-- Build release (R8) belum diuji.
+- Pemeriksaan `SelfTest` di device belum dikonfirmasi pengguna untuk siklus ini.
+- Belum ada migrasi skema (VERSION masih 1).
+- Belum ada API, auth, atau layar chat.
 
 ## Catatan
 
-- Gradle tidak butuh `org.gradle.daemon=true`; daemon dimatikan karena native services juga dimatikan. Konsekuensi: build selalu cold start, ~1–2 menit.
-- `Column` tidak punya parameter `contentPadding`; padding dipasang lewat modifier. Ini pernah menggagalkan build pertama.
-- `local.properties` berisi `sdk.dir` dan tidak masuk git.
+- SQLite dan AndroidKeyStore tidak bisa diuji di JVM pada lingkungan ini (bionic, tanpa emulator). Karena itu kebenarannya dibuktikan lewat `SelfTest` di perangkat, bukan unit test.
+- `scripts/build.sh` sekarang menerima beberapa task Gradle sekaligus (`assembleDebug testDebugUnitTest`).
+- `buildConfig = true` diaktifkan agar layar diagnostik bisa dibatasi ke build debug.
+- `Column` tidak punya `contentPadding`; padding lewat modifier.
 
-## Berikutnya (usulan siklus 2)
+## Berikutnya (usulan siklus 3)
 
-1. Lapisan data: skema SQLite `threads` dan `messages` + `NovaDatabase` (tanpa Room, sesuai D5)
-2. Penyimpanan kredensial AES-GCM di AndroidKeyStore (D6)
-3. Uji: unit test kecil untuk CRUD thread dan pesan
+1. Klien API: base URL, header `Authorization`, endpoint `/v1/models`
+2. DTO + parsing JSON (kotlinx.serialization)
+3. Layar chat minimal: daftar pesan dari database, kirim pesan tanpa streaming dulu
+4. Pengujian: pesan tersimpan dan terbaca setelah app ditutup
 
 ## Belum diputuskan
 
 - Basis URL backend: milik sendiri atau mock lokal
-- Apakah memori dan skills dibuat server-side seperti target, atau lokal
-- Apakah remote coding session masuk ruang lingkup awal
-- Nama final dan package final (sebelum rilis)
+- Format kredensial: API key saja atau juga OAuth
+- Apakah memori dan skills dibuat server-side atau lokal

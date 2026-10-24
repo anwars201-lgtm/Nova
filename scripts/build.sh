@@ -6,7 +6,6 @@
 # dan Gradle/Toolchain default mengarah ke direktori Termux yang tidak ada.
 set -e
 
-TASK="${1:-assembleDebug}"
 
 PREFIX="${PREFIX:-/data/user/0/com.androidharness.app/files/linux}"
 PREFIX="${PREFIX%/usr}"
@@ -18,8 +17,12 @@ export GRADLE_USER_HOME="${GRADLE_USER_HOME:-$SCRATCH/gradle-home}"
 export TMPDIR="${TMPDIR:-$SCRATCH/tmp}"
 mkdir -p "$TMPDIR"
 
-echo "== gradle $TASK"
-gradle --no-daemon --console=plain "$TASK" 2>&1 | tail -25
+if [ "$#" -eq 0 ]; then
+    set -- assembleDebug
+fi
+
+echo "== gradle $*"
+gradle --no-daemon --console=plain "$@" 2>&1 | tail -30
 
 out_dir="app/build/outputs/apk"
 apk=$(find "$out_dir" -name '*.apk' -newer STATUS.md 2>/dev/null | head -1)
