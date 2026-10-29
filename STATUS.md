@@ -42,10 +42,10 @@ Siklus 7:
 
 ```
 bash scripts/build.sh assembleDebug testDebugUnitTest
-→ BUILD SUCCESSFUL in 1m 1s
+→ BUILD SUCCESSFUL in 55s
 → EXIT=0
-→ 60 tes, 0 gagal
-→ sha256 b58e4a2314cae03f...
+→ 69 tes, 0 gagal
+→ sha256 5ad8ddbfb342917f...
 → apksigner verify: Verifies (v2)
 ```
 
@@ -58,6 +58,12 @@ bash scripts/build.sh assembleDebug testDebugUnitTest
 
 ## Catatan
 
+- Klaim "provider menolak reasoning_effort" belum terbukti dan kemungkinan salah.
+  Aplikasi lain berhasil memakai `reasoning_effort: "high"` ke model yang sama, jadi
+  parameternya didukung provider. Penyebab kegagalan Nova belum diketahui; bukti
+  dikumpulkan dari balasan mentah provider (ditampilkan sejak build `5ad8ddbf`).
+  Dugaan sementara: (a) isi balasan datang di `delta.reasoning_content` yang belum dibaca
+  `SseParser`, atau (b) ada perbedaan lain pada payload Nova.
 - Migrasi v1 → v2 hanya menambah tabel; chat lama tidak disentuh. **Sudah diuji di device:**
   APK dipasang di atas instalasi siklus 5, riwayat chat tetap ada.
 - Diagnostik sempat memberi 1 gagal palsu: pemeriksaan "sisa data uji" menghitung seluruh tabel thread, sehingga 8 chat pengguna dianggap sisa. Sudah diperbaiki dengan prefiks judul `[self-test] `; 13/13 lulus setelah perbaikan.
