@@ -17,8 +17,8 @@ menyertakan system prompt manual serta blok memori aktif dari SQLite.
 | Versi | 0.1.0 |
 | Skema database | **v2** (tabel `memories` ditambahkan) |
 | APK | `app/build/outputs/apk/debug/app-debug.apk` |
-| SHA-256 | `b58e4a2314cae03f...` (lengkap di build.log) |
-| Ukuran | 11.796.299 byte |
+| SHA-256 | `5ad8ddbfb342917f...` (lengkap di build.log) |
+| Ukuran | 11.828.304 byte |
 
 ## Selesai (terverifikasi)
 
@@ -31,10 +31,12 @@ Siklus 7:
 - [x] Pengaturan: pemilih effort (Tidak dipakai / low / medium / high / Nilai lain…) + kolom max tokens
 - [x] Nilai effort khusus bisa diketik; default tidak mengirim parameter sama sekali
 - [x] Galat 400 kini menyebut kemungkinan nama model, effort, atau max tokens
-- [x] Unit test JVM: **60 tes, 0 gagal** (ChatParams 11, sisanya 49)
+- [x] `HttpErrorText` — galat HTTP diterjemahkan, isi balasan provider ikut ditampilkan (9 tes)
+- [x] Stream kosong kini menampilkan cuplikan balasan mentah provider
+- [x] Unit test JVM: **69 tes, 0 gagal**
 - [x] Build lulus: `BUILD SUCCESSFUL in 1m 1s`
 - [x] Signature v2 terverifikasi
-- [x] APK baru: 11.796.299 byte, sha256 `b58e4a2314cae03f...`
+- [x] APK baru: 11.828.304 byte, sha256 `5ad8ddbfb342917f...`
 
 ### Bukti
 

@@ -60,7 +60,7 @@ class ChatClient {
             val body = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
 
             if (code !in 200..299) {
-                return@withContext ChatResult.Failure(describeHttpError(code, body))
+                return@withContext ChatResult.Failure(HttpErrorText.describe(code, body))
             }
 
             parseCompletion(body)
@@ -145,7 +145,7 @@ class ChatClient {
             val code = connection.responseCode
             if (code !in 200..299) {
                 val body = connection.errorStream?.bufferedReader()?.use { it.readText() }.orEmpty()
-                return@withContext ChatResult.Failure(describeHttpError(code, body))
+                return@withContext ChatResult.Failure(HttpErrorText.describe(code, body))
             }
 
             val contentType = connection.contentType.orEmpty()
@@ -155,10 +155,15 @@ class ChatClient {
             }
 
             val accumulator = StringBuilder()
+            val rawSample = StringBuilder()
             connection.inputStream.bufferedReader().use { reader ->
                 while (true) {
                     coroutineContext.ensureActive()
                     val line = reader.readLine() ?: break
+                    if (rawSample.length < RAW_SAMPLE_CHARS) {
+                        if (rawSample.isNotEmpty()) rawSample.append('\n')
+                        rawSample.append(line)
+                    }
                     if (SseParser.isDone(line)) break
 
                     SseParser.errorMessage(line)?.let { message ->
@@ -172,7 +177,16 @@ class ChatClient {
             }
 
             if (accumulator.isEmpty()) {
-                ChatResult.Failure("Server menutup stream tanpa isi")
+                // Provider kadang menolak dengan HTTP 200 lalu menutup stream tanpa data.
+                // Tampilkan cuplikan mentahnya supaya pengguna melihat alasan aslinya.
+                val sample = rawSample.toString().trim()
+                ChatResult.Failure(
+                    if (sample.isEmpty()) {
+                        "Server menutup stream tanpa isi"
+                    } else {
+                        "Server menutup stream tanpa isi. Balasan mentah: ${sample.take(300)}"
+                    }
+                )
             } else {
                 ChatResult.Success(content = accumulator.toString(), model = null)
             }
@@ -210,23 +224,11 @@ class ChatClient {
         return ChatResult.Success(content = content, model = root.optString("model").takeIf { it.isNotBlank() })
     }
 
-    private fun describeHttpError(code: Int, body: String): String {
-        val hint = when (code) {
-            400 -> "Permintaan ditolak. Periksa nama model, reasoning effort, dan max tokens."
-            401, 403 -> "API key ditolak atau tidak berwenang"
-            404 -> "Endpoint tidak ditemukan. Cek base URL."
-            413 -> "Riwayat percakapan terlalu panjang untuk model ini"
-            429 -> "Terlalu banyak permintaan atau kuota habis"
-            in 500..599 -> "Server bermasalah"
-            else -> "Permintaan ditolak"
-        }
-        val trimmed = body.trim().take(200)
-        return if (trimmed.isEmpty()) "$hint (HTTP $code)" else "$hint (HTTP $code): $trimmed"
-    }
 
     companion object {
         private const val CONNECT_TIMEOUT_MS = 15_000
         private const val READ_TIMEOUT_MS = 120_000
         private const val STREAM_READ_TIMEOUT_MS = 180_000
+        private const val RAW_SAMPLE_CHARS = 400
     }
 }
