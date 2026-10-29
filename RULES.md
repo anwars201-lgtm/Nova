@@ -71,3 +71,15 @@ Alasannya: tanpa catatan keputusan, thread baru akan menanyakan ulang hal yang s
 ## 10. Lingkungan
 
 Batas teknis environment ini (bionic, noexec, aapt2 x86_64, wrapper rusak) sudah terdokumentasi di `.harness/memory/workspace-capabilities.md`. Baca itu sebelum menyalahkan kode.
+
+## 11. Menunggu build
+
+1. Build dijalankan di depan hanya bila perkiraan selesai di bawah 8 menit — alat shell mematikan perintah pada 600 detik, dan build yang terpotong hanya menyisakan ekor log tanpa vonis. Vonisnya adalah kode exit perintah itu sendiri: 0 sukses, selain 0 gagal.
+2. Build yang lebih lama dijalankan di latar sebagai satu perintah. Log dikosongkan lebih dulu, dan skrip wajib menulis baris `EXIT=<kode>` ke log yang sama. `scripts/build.sh` sudah melakukan ini.
+3. Dilarang menunggu tanpa membaca apa pun. Selama menunggu, log diperiksa setiap 45–90 detik, dan setiap pemeriksaan wajib melaporkan informasi baru: task terbaru dari log (mis. `> Task :app:...`), atau status proses.
+4. Berhenti menunggu segera setelah muncul `BUILD SUCCESSFUL`, `BUILD FAILED`, atau baris `EXIT=`. Yang menjadi vonis adalah `EXIT=`, bukan kode exit perintah pemeriksaan.
+5. Baris error atau `What went wrong` dilaporkan saat itu juga, dengan baris persisnya, tanpa menunggu build selesai.
+6. Setelah `EXIT=0`, artefak diverifikasi: kalau ada perubahan kode, sha256 atau waktu ubah APK harus baru. `BUILD SUCCESSFUL` yang menghasilkan file lama padahal sumber berubah tetap dianggap gagal. Sebaliknya, bila semua task `UP-TO-DATE` dan tidak ada perubahan, file lama memang benar — nyatakan itu secara eksplisit, jangan mengklaim artefak baru.
+7. Dua kegagalan berturut-turut dengan baris error yang sama berarti penyebabnya belum dipahami. Berhenti, analisis, jangan mengulang perintah yang sama.
+
+**Catatan penerapan:** `scripts/build.sh` menulis seluruh keluaran ke `build.log`, menambahkan `EXIT=<kode>`, mencetak 25 baris terakhir, lalu `sha256` dan waktu ubah APK. Log tidak masuk git.
