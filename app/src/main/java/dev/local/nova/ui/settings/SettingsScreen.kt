@@ -2,6 +2,7 @@ package dev.local.nova.ui.settings
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -27,6 +28,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
@@ -37,6 +39,7 @@ import dev.local.nova.data.AppSettings
 import dev.local.nova.BuildConfig
 import dev.local.nova.ui.home.DiagnosticsCard
 import dev.local.nova.net.ApiClient
+import dev.local.nova.net.ChatParams
 import dev.local.nova.net.Endpoint
 import dev.local.nova.net.EndpointResult
 import dev.local.nova.net.ModelsResult
@@ -55,6 +58,15 @@ fun SettingsScreen(onBack: () -> Unit, onOpenMemory: () -> Unit = {}) {
     var apiKey by remember { mutableStateOf(settings.apiKey.orEmpty()) }
     var model by remember { mutableStateOf(settings.defaultModel.orEmpty()) }
     var systemPrompt by remember { mutableStateOf(settings.systemPrompt.orEmpty()) }
+    var effort by remember { mutableStateOf(settings.reasoningEffort.orEmpty()) }
+    var customEffort by remember {
+        mutableStateOf(effort.isNotEmpty() && effort !in ChatParams.EFFORT_PRESETS)
+    }
+    var showEffortDialog by remember { mutableStateOf(false) }
+    var maxTokensText by remember {
+        mutableStateOf(settings.maxTokens.takeIf { it > 0 }?.toString().orEmpty())
+    }
+    var maxTokensError by remember { mutableStateOf<String?>(null) }
     var keyVisible by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf<String?>(null) }
@@ -183,6 +195,43 @@ fun SettingsScreen(onBack: () -> Unit, onOpenMemory: () -> Unit = {}) {
                 Text(if (loadingModels) "Memuat model…" else "Muat daftar model dari provider")
             }
 
+            if (showEffortDialog) {
+                AlertDialog(
+                    onDismissRequest = { showEffortDialog = false },
+                    title = { Text("Reasoning effort") },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            val options = listOf("Tidak dipakai") + ChatParams.EFFORT_PRESETS + "Nilai lain…"
+                            options.forEach { option ->
+                                TextButton(
+                                    onClick = {
+                                        when (option) {
+                                            "Tidak dipakai" -> {
+                                                effort = ""
+                                                customEffort = false
+                                            }
+
+                                            "Nilai lain…" -> {
+                                                customEffort = true
+                                            }
+
+                                            else -> {
+                                                effort = option
+                                                customEffort = false
+                                            }
+                                        }
+                                        showEffortDialog = false
+                                    },
+                                ) { Text(option) }
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { showEffortDialog = false }) { Text("Tutup") }
+                    },
+                )
+            }
+
             if (showModelDialog) {
                 AlertDialog(
                     onDismissRequest = { showModelDialog = false },
@@ -264,13 +313,73 @@ fun SettingsScreen(onBack: () -> Unit, onOpenMemory: () -> Unit = {}) {
                 Text("Kelola memori")
             }
 
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Reasoning effort", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        text = effort.ifBlank { "Tidak dipakai" },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                TextButton(onClick = { showEffortDialog = true }) { Text("Ubah") }
+            }
+
+            if (customEffort) {
+                OutlinedTextField(
+                    value = effort,
+                    onValueChange = { effort = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Nilai effort khusus") },
+                    placeholder = { Text("minimal") },
+                    singleLine = true,
+                    supportingText = {
+                        Text("Dikirim apa adanya sebagai reasoning_effort.")
+                    },
+                )
+            }
+
+            OutlinedTextField(
+                value = maxTokensText,
+                onValueChange = {
+                    maxTokensText = it
+                    maxTokensError = null
+                },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Max tokens (opsional)") },
+                placeholder = { Text("kosong = tidak dibatasi") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                isError = maxTokensError != null,
+                supportingText = {
+                    Text(
+                        maxTokensError ?: "Batas panjang balasan. Kosongkan bila tidak ingin mengirim parameter ini.",
+                    )
+                },
+            )
+
             Button(
                 onClick = {
                     val url = validated() ?: return@Button
+                    val tokens = when (val parsed = ChatParams.parseMaxTokens(maxTokensText)) {
+                        is ChatParams.TokensResult.Invalid -> {
+                            maxTokensError = parsed.reason
+                            return@Button
+                        }
+
+                        is ChatParams.TokensResult.Value -> parsed.tokens
+                        ChatParams.TokensResult.Off -> 0
+                    }
                     settings.baseUrl = url
                     settings.apiKey = apiKey
                     settings.defaultModel = model.trim().ifBlank { null }
                     settings.systemPrompt = systemPrompt
+                    settings.reasoningEffort = effort.trim().ifBlank { null }
+                    settings.maxTokens = tokens
                     report("Tersimpan. ${Endpoint.maskKey(apiKey)}", isError = false)
                 },
                 modifier = Modifier.fillMaxWidth(),

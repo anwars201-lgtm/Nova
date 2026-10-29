@@ -32,12 +32,14 @@ class ChatClient {
         apiKey: String,
         model: String,
         history: List<Message>,
+        options: ChatOptions = ChatOptions(),
     ): ChatResult = withContext(Dispatchers.IO) {
         val url = Endpoint.chatUrl(baseUrl)
         var connection: HttpURLConnection? = null
 
         try {
-            val payload = buildPayload(model, history).toString().toByteArray(Charsets.UTF_8)
+            val payload = buildPayload(model, history, stream = false, options = options)
+                .toString().toByteArray(Charsets.UTF_8)
 
             connection = (URL(url).openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"
@@ -77,7 +79,12 @@ class ChatClient {
         }
     }
 
-    private fun buildPayload(model: String, history: List<Message>, stream: Boolean = false): JSONObject {
+    private fun buildPayload(
+        model: String,
+        history: List<Message>,
+        stream: Boolean = false,
+        options: ChatOptions = ChatOptions(),
+    ): JSONObject {
         val messages = JSONArray()
         history.forEach { message ->
             messages.put(
@@ -91,6 +98,9 @@ class ChatClient {
             .put("model", model)
             .put("stream", stream)
             .put("messages", messages)
+            .apply {
+                ChatParams.extraFields(options).forEach { (key, value) -> put(key, value) }
+            }
     }
 
     /**
@@ -108,13 +118,15 @@ class ChatClient {
         apiKey: String,
         model: String,
         history: List<Message>,
+        options: ChatOptions = ChatOptions(),
         onDelta: suspend (String) -> Unit,
     ): ChatResult = withContext(Dispatchers.IO) {
         val url = Endpoint.chatUrl(baseUrl)
         var connection: HttpURLConnection? = null
 
         try {
-            val payload = buildPayload(model, history, stream = true).toString().toByteArray(Charsets.UTF_8)
+            val payload = buildPayload(model, history, stream = true, options = options)
+                .toString().toByteArray(Charsets.UTF_8)
 
             connection = (URL(url).openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"
@@ -200,7 +212,7 @@ class ChatClient {
 
     private fun describeHttpError(code: Int, body: String): String {
         val hint = when (code) {
-            400 -> "Permintaan ditolak. Nama model mungkin salah."
+            400 -> "Permintaan ditolak. Periksa nama model, reasoning effort, dan max tokens."
             401, 403 -> "API key ditolak atau tidak berwenang"
             404 -> "Endpoint tidak ditemukan. Cek base URL."
             413 -> "Riwayat percakapan terlalu panjang untuk model ini"

@@ -157,3 +157,16 @@ Hanya keputusan yang bertahan lama. Satu keputusan = satu blok, berisi apa dan k
 - Memori besar tidak "dipilih" secara cerdas; pengguna yang harus menonaktifkan yang tidak relevan.
 - Kalau nanti dibutuhkan pencarian relevansi, itu keputusan baru (D14 dan seterusnya), bukan perubahan diam-diam pada D12.
 - Memori tidak pernah dikirim bila saklar global mati — termasuk ke provider yang sama sekali tidak diminta.
+
+---
+
+## D13 — Reasoning effort dari daftar, max tokens opsional
+
+**Keputusan:** Dua parameter tambahan dikirim hanya bila diisi pengguna: `reasoning_effort` (pilihan Tidak dipakai, low, medium, high, atau nilai lain) dan `max_tokens` (angka 1–200.000). Kosong berarti field tidak dikirim sama sekali.
+
+**Alasan:** Nilai effort adalah himpunan tertutup, jadi daftar pilihan mencegah typo yang berujung HTTP 400. Tetapi nilainya tidak seragam antar provider (OpenAI juga menerima `minimal`), jadi opsi "nilai lain" tetap disediakan. `max_tokens` mencegah balasan panjang memakan kuota tanpa disadari.
+
+**Konsekuensi:**
+- Provider yang tidak mengenal parameter ini akan menolak permintaan bila field-nya dikirim; karena itu default-nya benar-benar absen dari payload, bukan bernilai null.
+- Temperature sengaja tidak ditambahkan pada siklus ini.
+- Pesan galat HTTP 400 sekarang menyebut ketiga kemungkinan penyebab (model, effort, max tokens) agar pengguna tidak menebak.

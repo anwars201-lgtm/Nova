@@ -48,6 +48,7 @@ import dev.local.nova.data.model.MessageRole
 import dev.local.nova.data.model.MessageStatus
 import dev.local.nova.data.model.Thread
 import dev.local.nova.net.ChatClient
+import dev.local.nova.net.ChatOptions
 import dev.local.nova.net.ChatResult
 import dev.local.nova.net.MessageText
 import kotlinx.coroutines.Dispatchers
@@ -124,6 +125,11 @@ fun ChatScreen(
         busy = true
         streamingText = ""
 
+        val options = ChatOptions(
+            reasoningEffort = settings.reasoningEffort,
+            maxTokens = settings.maxTokens.takeIf { it > 0 },
+        )
+
         streamJob = scope.launch {
             withContext(Dispatchers.IO) {
                 repository.addMessage(threadId, MessageRole.USER, text)
@@ -162,7 +168,7 @@ fun ChatScreen(
 
             synchronized(buffer) { buffer.setLength(0) }
 
-            val result = chatClient.stream(url, key, selectedModel, outgoing) { chunk ->
+            val result = chatClient.stream(url, key, selectedModel, outgoing, options) { chunk ->
                 val snapshot = synchronized(buffer) {
                     buffer.append(chunk)
                     buffer.toString()

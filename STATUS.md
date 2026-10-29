@@ -1,8 +1,8 @@
 # Status proyek
 
 Diperbarui: 2026-10-24
-Siklus terakhir: **6 — memori lokal + injeksi system prompt** (selesai, terverifikasi penuh di device)
-Tahap: personalisasi dasar berjalan, skema database v2
+Siklus terakhir: **7 — reasoning effort & max tokens** (selesai, menunggu uji di device)
+Tahap: parameter model bisa dikendalikan pengguna
 
 ## Posisi sekarang
 
@@ -17,42 +17,41 @@ menyertakan system prompt manual serta blok memori aktif dari SQLite.
 | Versi | 0.1.0 |
 | Skema database | **v2** (tabel `memories` ditambahkan) |
 | APK | `app/build/outputs/apk/debug/app-debug.apk` |
-| SHA-256 | `687a69a027d535e93140f75020a26c5e11ad57acddd1f0c26d696fc7ef1eff94` |
-| Ukuran | 11.783.473 byte |
+| SHA-256 | `b58e4a2314cae03f...` (lengkap di build.log) |
+| Ukuran | 11.796.299 byte |
 
 ## Selesai (terverifikasi)
 
-- [x] Skema v2: tabel `memories(id, content, created_at, active)` + migrasi `onUpgrade` bertahap
-- [x] `MemoryRepository` — tambah, baca semua/aktif, ubah, aktif-nonaktif, hapus, hitung
-- [x] `MemoryText` — rapikan spasi, tolak kosong dan >500 karakter (4 tes)
-- [x] `PromptBuilder` — urutan manual lalu memori, batas 50 entri / 4.000 karakter (7 tes)
-- [x] `AppSettings` — `systemPrompt` dan `memoryEnabled` (saklar global, default aktif)
-- [x] Layar **Memori**: daftar, tambah, ubah, hapus, saklar per entri, saklar global, peringatan batas
-- [x] Kolom **System prompt** di Pengaturan + pintasan "Kelola memori"
-- [x] Injeksi system prompt di setiap kirim; bila saklar mati, memori tidak dibaca sama sekali
-- [x] `SelfTest` bertambah 5 pemeriksaan memori (total 13) termasumber urutan prompt
-- [x] Unit test JVM: **49 tes, 0 gagal**
-- [x] Build lulus: `BUILD SUCCESSFUL in 1m 40s`
+Siklus 1-6: kerangka Compose, SQLite + SecureStore (13/13 diagnostik di device), pengaturan https, chat streaming, memori lokal + injeksi system prompt.
+
+Siklus 7:
+
+- [x] `ChatOptions` + `ChatParams` — validasi max tokens (1..200.000), field hanya dikirim bila diisi (11 tes)
+- [x] `ChatClient.complete` dan `stream` menerima opsi; payload memuat `reasoning_effort` dan `max_tokens` bila ada
+- [x] Pengaturan: pemilih effort (Tidak dipakai / low / medium / high / Nilai lain…) + kolom max tokens
+- [x] Nilai effort khusus bisa diketik; default tidak mengirim parameter sama sekali
+- [x] Galat 400 kini menyebut kemungkinan nama model, effort, atau max tokens
+- [x] Unit test JVM: **60 tes, 0 gagal** (ChatParams 11, sisanya 49)
+- [x] Build lulus: `BUILD SUCCESSFUL in 1m 1s`
 - [x] Signature v2 terverifikasi
-- [x] Migrasi v1 -> v2 terverifikasi di device: riwayat chat lama tetap utuh (konfirmasi pengguna, 2026-10-24)
-- [x] Diagnostik **13/13 lulus** di perangkat, termasuk isolasi data uji dari percakapan pengguna
+- [x] APK baru: 11.796.299 byte, sha256 `b58e4a2314cae03f...`
 
 ### Bukti
 
 ```
 bash scripts/build.sh assembleDebug testDebugUnitTest
-→ BUILD SUCCESSFUL in 1m 40s
-→ 49 tes, 0 gagal
-→ app/build/outputs/apk/debug/app-debug.apk
-→ sha256 e3e81a8f...49dd8c85
+→ BUILD SUCCESSFUL in 1m 1s
+→ EXIT=0
+→ 60 tes, 0 gagal
+→ sha256 b58e4a2314cae03f...
 → apksigner verify: Verifies (v2)
 ```
 
 ## Tidak selesai (sengaja)
 
 - Embedding atau pencarian relevansi tidak dipakai (keputusan siklus 6).
-- Reasoning effort belum ada; ditunda agar siklus ini fokus pada memori.
-- Belum ada retry per pesan, hapus pesan, atau pengaturan temperature/max tokens.
+- Temperature tidak ditambahkan (keputusan pengguna: effort + max tokens saja).
+- Belum ada retry per pesan atau hapus pesan.
 - Belum ada ekspor/impor memori.
 
 ## Catatan
@@ -68,11 +67,11 @@ bash scripts/build.sh assembleDebug testDebugUnitTest
 
 | Siklus | Isi | Syarat |
 |---|---|---|
-| 7 | Reasoning effort + parameter model (temperature, max tokens) | siklus 6 |
+| 7 | ~~Reasoning effort + max tokens~~ (selesai) | — |
 | 8 | **Release hardening** (D9): R8, keystore rilis, migrasi teruji | sebelum rilis pertama |
 | 9+ | Perubahan tampilan dan fitur tambahan | kapan saja setelah rilis |
 
 ## Belum diputuskan
 
-- Apakah reasoning effort per model perlu dibaca dari daftar `/models` atau diisi manual
-- Apakah memori perlu dikelompokkan (misal kategori) ketika jumlahnya membesar
+- Apakah memori perlu dikelompokkan ketika jumlahnya membesar
+- Apakah perlu indikator pemakaian token dari respons (`usage`) ditampilkan
